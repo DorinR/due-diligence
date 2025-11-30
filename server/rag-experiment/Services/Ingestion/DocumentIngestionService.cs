@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
-using rag_experiment.Models;
+using rag_experiment.Domain;
+using rag_experiment.Services.Query.Models;
 using rag_experiment.Services.Ingestion.TextExtraction;
 using rag_experiment.Services.Ingestion.VectorStorage;
 using System.Security.Cryptography;

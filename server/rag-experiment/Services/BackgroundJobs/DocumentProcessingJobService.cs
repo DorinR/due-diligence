@@ -1,5 +1,6 @@
 using Hangfire;
-using rag_experiment.Models;
+using rag_experiment.Domain;
+using rag_experiment.Services.BackgroundJobs.Models;
 using rag_experiment.Repositories;
 using rag_experiment.Services.Ingestion.TextExtraction;
 using rag_experiment.Services.Ingestion.VectorStorage;

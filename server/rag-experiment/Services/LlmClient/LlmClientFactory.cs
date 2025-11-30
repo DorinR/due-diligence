@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
-using rag_experiment.Models;
+using rag_experiment.Services.LlmClient.Models;
+using rag_experiment.Services.Query.Models;
 
 namespace rag_experiment.Services
 {

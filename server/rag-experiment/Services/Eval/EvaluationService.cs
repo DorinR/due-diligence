@@ -1,6 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
-using rag_experiment.Models;
+using rag_experiment.Services.Eval.Models;
 using rag_experiment.Services.Ingestion.VectorStorage;
 
 namespace rag_experiment.Services

@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using rag_experiment.Models;
+using rag_experiment.Domain;
 
 namespace rag_experiment.Services
 {

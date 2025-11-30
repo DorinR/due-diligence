@@ -4,8 +4,8 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using rag_experiment.Models;
-using rag_experiment.Models.Auth;
+using rag_experiment.Domain;
+using rag_experiment.Services.Auth.Models;
 using BC = BCrypt.Net.BCrypt;
 
 namespace rag_experiment.Services.Auth

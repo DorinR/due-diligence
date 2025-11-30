@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using rag_experiment.Services;
-using rag_experiment.Models;
+using rag_experiment.Domain;
+using rag_experiment.Services.Query.Models;
+using rag_experiment.Services.LlmClient.Models;
 using rag_experiment.Services.Ingestion.VectorStorage;
 using rag_experiment.Repositories.Documents;
 using System.Security.Cryptography;

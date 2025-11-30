@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using rag_experiment.Models.Auth;
+using rag_experiment.Services.Auth.Models;
 using rag_experiment.Services.Auth;
 using rag_experiment.Services;
 

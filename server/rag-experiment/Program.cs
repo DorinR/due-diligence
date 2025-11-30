@@ -1,7 +1,8 @@
 using Microsoft.OpenApi.Models;
 using rag_experiment.Services;
 using Microsoft.EntityFrameworkCore;
-using rag_experiment.Models;
+using rag_experiment.Services.Query.Models;
+using rag_experiment.Services.LlmClient.Models;
 using rag_experiment.Services.Events;
 using rag_experiment.Services.Ingestion.VectorStorage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;

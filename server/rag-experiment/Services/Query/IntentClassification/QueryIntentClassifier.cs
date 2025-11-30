@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using rag_experiment.Models;
+using rag_experiment.Services.Query.Models;
 
 namespace rag_experiment.Services.Query
 {

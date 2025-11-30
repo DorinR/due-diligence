@@ -1,4 +1,4 @@
-namespace rag_experiment.Models
+namespace rag_experiment.Services.Eval.Models
 {
     public class EvaluationMetrics
     {
@@ -30,3 +30,4 @@ namespace rag_experiment.Models
         public double AverageF1Score { get; set; }
     }
 }
+

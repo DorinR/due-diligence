@@ -1,4 +1,4 @@
-namespace rag_experiment.Models.Auth
+namespace rag_experiment.Services.Auth.Models
 {
     public class AuthResponse
     {
@@ -16,3 +16,4 @@ namespace rag_experiment.Models.Auth
         public string? LastName { get; set; }
     }
 }
+

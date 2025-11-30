@@ -1,4 +1,4 @@
-namespace rag_experiment.Models
+namespace rag_experiment.Services.LlmClient.Models
 {
     /// <summary>
     /// Configuration settings for a specific LLM model tier.
@@ -87,3 +87,4 @@ namespace rag_experiment.Models
         }
     }
 }
+

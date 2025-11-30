@@ -1,11 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
-using rag_experiment.Models;
+using rag_experiment.Domain;
 using rag_experiment.Services;
 using rag_experiment.Services.Events;
 using rag_experiment.Services.Auth;
 using rag_experiment.Services.BackgroundJobs;
+using rag_experiment.Services.Query.Models;
 using Hangfire;
 using Microsoft.Extensions.Options;
 

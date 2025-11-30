@@ -1,4 +1,4 @@
-namespace rag_experiment.Models
+namespace rag_experiment.Domain
 {
     public class Document
     {
@@ -43,3 +43,4 @@ namespace rag_experiment.Models
         public List<MessageSource> CitedInMessages { get; set; } = new();
     }
 }
+

@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace rag_experiment.Models
+namespace rag_experiment.Domain
 {
     public enum MessageRole
     {
@@ -30,3 +30,4 @@ namespace rag_experiment.Models
         public List<MessageSource> Sources { get; set; } = new();
     }
 }
+

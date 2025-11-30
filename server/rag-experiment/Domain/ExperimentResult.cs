@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace rag_experiment.Models
+namespace rag_experiment.Domain
 {
     public class ExperimentResult
     {
@@ -41,3 +41,4 @@ namespace rag_experiment.Models
         [NotMapped] public bool IsTextProcessingExplicitlySet { get; set; } = false;
     }
 }
+

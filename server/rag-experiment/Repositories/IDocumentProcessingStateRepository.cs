@@ -1,4 +1,4 @@
-using rag_experiment.Models;
+using rag_experiment.Services.BackgroundJobs.Models;
 
 namespace rag_experiment.Repositories
 {

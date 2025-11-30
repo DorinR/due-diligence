@@ -1,4 +1,4 @@
-namespace rag_experiment.Models
+namespace rag_experiment.Domain
 {
     /// <summary>
     /// Represents the source/owner of an embedding to distinguish between user-uploaded documents 
@@ -45,3 +45,4 @@ namespace rag_experiment.Models
         public Conversation? Conversation { get; set; }
     }
 }
+

@@ -1,4 +1,4 @@
-using rag_experiment.Models;
+using rag_experiment.Services.BackgroundJobs.Models;
 using System.Collections.Concurrent;
 
 namespace rag_experiment.Repositories

@@ -1,4 +1,4 @@
-namespace rag_experiment.Models
+namespace rag_experiment.Services.BackgroundJobs.Models
 {
     public class DocumentProcessingState
     {
@@ -24,3 +24,4 @@ namespace rag_experiment.Models
         Failed
     }
 }
+

@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace rag_experiment.Models.Auth
+namespace rag_experiment.Services.Auth.Models
 {
     public class RegisterRequest
     {
@@ -36,3 +36,4 @@ namespace rag_experiment.Models.Auth
         [Required] public string RefreshToken { get; set; }
     }
 }
+

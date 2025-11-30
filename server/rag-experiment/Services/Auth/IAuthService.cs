@@ -1,5 +1,5 @@
-using rag_experiment.Models;
-using rag_experiment.Models.Auth;
+using rag_experiment.Domain;
+using rag_experiment.Services.Auth.Models;
 
 namespace rag_experiment.Services.Auth
 {

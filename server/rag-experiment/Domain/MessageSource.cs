@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace rag_experiment.Models
+namespace rag_experiment.Domain
 {
     /// <summary>
     /// Represents a document source that contributed to a message response.
@@ -42,3 +42,4 @@ namespace rag_experiment.Models
         public Document Document { get; set; }
     }
 }
+

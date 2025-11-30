@@ -1,4 +1,4 @@
-namespace rag_experiment.Models
+namespace rag_experiment.Services.Query.Models
 {
     /// <summary>
     /// Represents the type of user query intent for adaptive retrieval strategies.
@@ -65,3 +65,4 @@ namespace rag_experiment.Models
         public float? Confidence { get; set; }
     }
 }
+

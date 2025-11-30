@@ -10,35 +10,34 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="BCrypt.Net-Next" Version="4.0.3"/>
-        <PackageReference Include="Hangfire.AspNetCore" Version="1.8.20"/>
-        <PackageReference Include="Hangfire.PostgreSql" Version="1.20.12"/>
-        <PackageReference Include="itext7" Version="9.1.0"/>
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0"/>
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0"/>
-        <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.3"/>
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.3"/>
+        <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+        <PackageReference Include="Hangfire.AspNetCore" Version="1.8.20" />
+        <PackageReference Include="Hangfire.PostgreSql" Version="1.20.12" />
+        <PackageReference Include="itext7" Version="9.1.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
+        <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.3" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.3" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.3">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.3"/>
-        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4"/>
-        <PackageReference Include="Swashbuckle.AspNetCore.Swagger" Version="7.3.1"/>
-        <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="7.3.1"/>
-        <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="7.3.1"/>
-        <PackageReference Include="OpenAI" Version="2.1.0"/>
-        <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.1"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.3" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+        <PackageReference Include="Swashbuckle.AspNetCore.Swagger" Version="7.3.1" />
+        <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="7.3.1" />
+        <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="7.3.1" />
+        <PackageReference Include="OpenAI" Version="2.1.0" />
+        <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.1" />
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="docs/"/>
-        <Folder Include="Services\Query\"/>
-        <Folder Include="Training/"/>
-        <Folder Include="Training/One/"/>
-        <Folder Include="Training/Three/"/>
-        <Folder Include="Training/Two/"/>
-        <Folder Include="Uploads/"/>
+        <Folder Include="Services\Query\" />
+        <Folder Include="Training/" />
+        <Folder Include="Training/One/" />
+        <Folder Include="Training/Three/" />
+        <Folder Include="Training/Two/" />
+        <Folder Include="Uploads/" />
     </ItemGroup>
 
     <ItemGroup>

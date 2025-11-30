@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace rag_experiment.Models
+namespace rag_experiment.Domain
 {
     public class User
     {
@@ -21,3 +21,4 @@ namespace rag_experiment.Models
         public List<Conversation> Conversations { get; set; } = new();
     }
 }
+

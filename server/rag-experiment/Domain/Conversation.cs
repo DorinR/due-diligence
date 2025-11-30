@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace rag_experiment.Models
+namespace rag_experiment.Domain
 {
     public class Conversation
     {
@@ -25,3 +25,4 @@ namespace rag_experiment.Models
         public List<Message> Messages { get; set; } = new();
     }
 }
+

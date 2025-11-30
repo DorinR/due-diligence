@@ -1,4 +1,4 @@
-namespace rag_experiment.Models
+namespace rag_experiment.Domain
 {
     /// <summary>
     /// Defines the type of conversation to distinguish between different query contexts
@@ -16,3 +16,4 @@ namespace rag_experiment.Models
         GeneralKnowledge = 1
     }
 }
+

@@ -1,4 +1,4 @@
-namespace rag_experiment.Models
+namespace rag_experiment.Services.Query.Models
 {
     public class RagSettings
     {
@@ -45,3 +45,4 @@ namespace rag_experiment.Models
         public int MaxBatchSize { get; set; } = 30;
     }
 }
+

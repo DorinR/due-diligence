@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using rag_experiment.Models;
+using rag_experiment.Domain;
 using rag_experiment.Services;
 using rag_experiment.Services.Auth;
 

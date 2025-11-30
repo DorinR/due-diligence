@@ -1,4 +1,3 @@
-using rag_experiment.Models;
 using System.Threading.Tasks;
 
 namespace rag_experiment.Services.BackgroundJobs

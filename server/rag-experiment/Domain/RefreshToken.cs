@@ -1,4 +1,4 @@
-namespace rag_experiment.Models
+namespace rag_experiment.Domain
 {
     public class RefreshToken
     {
@@ -18,3 +18,4 @@ namespace rag_experiment.Models
         public bool IsActive => !IsRevoked && !IsExpired;
     }
 }
+

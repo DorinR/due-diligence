@@ -1,4 +1,4 @@
-namespace rag_experiment.Models
+namespace rag_experiment.Services.LlmClient.Models
 {
     /// <summary>
     /// Represents the performance and cost tier for LLM model selection.
@@ -31,3 +31,4 @@ namespace rag_experiment.Models
         Premium
     }
 }
+

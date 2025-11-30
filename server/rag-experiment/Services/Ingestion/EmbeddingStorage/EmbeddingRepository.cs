@@ -1,4 +1,4 @@
-using rag_experiment.Models;
+using rag_experiment.Domain;
 using rag_experiment.Services.Auth;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
