@@ -1,0 +1,241 @@
+# frontend gitignore
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment files
+.env.development
+.env.production
+
+# Keep example file in git
+!.env.example
+
+# backend gitignore
+
+# Testing
+/coverage
+
+# Production
+/build
+/dist
+/.next/
+/out/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Development helper files (uncomment to exclude from version control)
+# run-dev.sh
+# run-prod.sh
+# run-dev.bat
+# run-prod.bat
+# CURSOR_DEVELOPMENT.md
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+venv/
+.env/
+
+# .NET Core
+bin/
+obj/
+*.dll
+*.pdb
+*.exe
+*.user
+*.suo
+*.cache
+*.log
+*.vs
+*_i.c
+*_p.c
+*.ilk
+*.meta
+*.obj
+*.pch
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+project.lock.json
+project.fragment.lock.json
+artifacts/
+*.swp
+*.swo
+*.bak
+*~
+*.dll
+*.so
+*.dylib
+*.exe
+*.pdb
+*.tmp
+*.nupkg
+*.ipdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*.log
+*.vssscc
+*.pidb
+*.svclog
+*.scc
+*.sw[0-9]
+*.user
+*.userprefs
+*.usertasks
+*.vscode
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+msbuild.log
+msbuild.err
+msbuild.wrn
+
+# Visual Studio files
+.vs/
+.vscode/
+*_i.c
+*_p.c
+*_i.h
+*.ilk
+*.meta
+*.obj
+*.pch
+*.pdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp_proj
+*.vspscc
+*.vssscc
+.builds
+*.sln.docstates
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+**/app.db
+
+# Temp & Cache
+.DS_Store
+Thumbs.db
+[Tt]emp/
+[Cc]ache/
+
+# Exceptions - files to keep in version control
+!docs/
+!docs/*.md
+!docs/**/*.md
+
+# Extracted research papers
+extracted_papers/
+cisi_evaluation/
+cisi_papers/
+
+# New file
+appsettings.Development.json 
+
+# Document uploads
+Uploads/
+
+# Training data
+Training/

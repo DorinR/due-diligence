@@ -1,0 +1,518 @@
+using rag_experiment.Models;
+using rag_experiment.Services.Auth;
+using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Linq;
+
+namespace rag_experiment.Services.Ingestion.VectorStorage
+{
+    public class EmbeddingRepository : IEmbeddingRepository
+    {
+        private readonly AppDbContext _context;
+        private readonly IUserContext _userContext;
+
+        public EmbeddingRepository(AppDbContext context, IUserContext userContext)
+        {
+            _context = context;
+            _userContext = userContext;
+        }
+
+        public void AddEmbedding(string text, float[] embeddingData, string documentId, int? userId,
+            int? conversationId, string documentTitle, EmbeddingOwner owner, int chunkIndex, byte[] chunkHash,
+            string? trainingFolderName = null)
+        {
+            var embedding = new Embedding
+            {
+                Text = text,
+                EmbeddingData = ConvertToBlob(embeddingData),
+                DocumentId = documentId,
+                DocumentTitle = documentTitle,
+                Owner = owner,
+                UserId = userId,
+                ConversationId = conversationId,
+                ChunkIndex = chunkIndex,
+                ChunkHash = chunkHash,
+                TrainingFolderName = trainingFolderName
+            };
+
+            _context.Embeddings.Add(embedding);
+            _context.SaveChanges();
+        }
+
+        public (int Id, string Text, float[] EmbeddingVector, string DocumentId, string DocumentTitle)
+            GetEmbedding(int id)
+        {
+            var userId = _userContext.GetCurrentUserId();
+
+            var embedding = _context.Embeddings
+                .FirstOrDefault(e => e.Id == id && e.UserId == userId);
+
+            if (embedding == null)
+                return default;
+
+            return (embedding.Id, embedding.Text, ConvertFromBlob(embedding.EmbeddingData), embedding.DocumentId,
+                embedding.DocumentTitle);
+        }
+
+        public void UpdateEmbedding(int id, string newText, float[] newEmbeddingData, string? documentId = null,
+            string? documentTitle = null, EmbeddingOwner? owner = null)
+        {
+            var userId = _userContext.GetCurrentUserId();
+
+            var embedding = _context.Embeddings
+                .FirstOrDefault(e => e.Id == id && e.UserId == userId);
+
+            if (embedding != null)
+            {
+                embedding.Text = newText;
+                embedding.EmbeddingData = ConvertToBlob(newEmbeddingData);
+
+                if (documentId != null)
+                {
+                    embedding.DocumentId = documentId;
+                }
+
+                if (documentTitle != null)
+                {
+                    embedding.DocumentTitle = documentTitle;
+                }
+
+                if (owner.HasValue)
+                {
+                    embedding.Owner = owner.Value;
+                }
+
+                _context.SaveChanges();
+            }
+        }
+
+        public void DeleteEmbedding(int id)
+        {
+            var userId = _userContext.GetCurrentUserId();
+
+            var embedding = _context.Embeddings
+                .FirstOrDefault(e => e.Id == id && e.UserId == userId);
+
+            if (embedding != null)
+            {
+                _context.Embeddings.Remove(embedding);
+                _context.SaveChanges();
+            }
+        }
+
+        public void DeleteEmbeddingsByDocumentId(string documentId)
+        {
+            var userId = _userContext.GetCurrentUserId();
+
+            var embeddingsToDelete = _context.Embeddings
+                .Where(e => e.DocumentId == documentId && e.UserId == userId)
+                .ToList();
+
+            if (embeddingsToDelete.Any())
+            {
+                _context.Embeddings.RemoveRange(embeddingsToDelete);
+                _context.SaveChanges();
+            }
+        }
+
+        /// <summary>
+        /// Finds the most similar embeddings in the database to the query embedding, scoped to a conversation.
+        /// </summary>
+        /// <param name="queryEmbedding">The query embedding vector</param>
+        /// <param name="conversationId">The conversation ID to scope the search to</param>
+        /// <param name="topK">Number of results to return</param>
+        /// <returns>List of text chunks, document IDs, document titles, and their similarity scores, ordered by similarity</returns>
+        public List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>
+            FindSimilarEmbeddingsFromUsersDocuments(float[] queryEmbedding, int? conversationId, int topK = 10)
+        {
+            var userId = _userContext.GetCurrentUserId();
+            var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
+
+            // Load all UserDocument embeddings from the database for the current user and conversation (if specified)
+            var embeddings = _context.Embeddings
+                .Where(e => e.UserId == userId &&
+                            (conversationId == null || e.ConversationId == conversationId) &&
+                            e.Owner == EmbeddingOwner.UserDocument)
+                .ToList();
+
+            // Calculate similarity for each embedding
+            foreach (var embedding in embeddings)
+            {
+                var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
+                var similarity = CosineSimilarity(queryEmbedding, embeddingVector);
+
+                results.Add((embedding.Text, embedding.DocumentId, embedding.DocumentTitle, similarity));
+            }
+
+            // Return top K results, ordered by similarity (highest first)
+            return results
+                .OrderByDescending(r => r.Similarity)
+                .Take(topK)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Finds the most similar embeddings in the database to the query embedding across all user's conversations.
+        /// </summary>
+        /// <param name="queryEmbedding">The query embedding vector</param>
+        /// <param name="topK">Number of results to return</param>
+        /// <returns>List of text chunks, document IDs, document titles, and their similarity scores, ordered by similarity</returns>
+        public List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>
+            FindSimilarEmbeddingsAllConversations(float[] queryEmbedding, int topK = 10)
+        {
+            var userId = _userContext.GetCurrentUserId();
+            var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
+
+            // Load all UserDocument embeddings from the database for the current user across all conversations
+            var embeddings = _context.Embeddings
+                .Where(e => e.UserId == userId && e.Owner == EmbeddingOwner.UserDocument)
+                .ToList();
+
+            // Calculate similarity for each embedding
+            foreach (var embedding in embeddings)
+            {
+                var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
+                var similarity = CosineSimilarity(queryEmbedding, embeddingVector);
+
+                results.Add((embedding.Text, embedding.DocumentId, embedding.DocumentTitle, similarity));
+            }
+
+            // Return top K results, ordered by similarity (highest first)
+            return results
+                .OrderByDescending(r => r.Similarity)
+                .Take(topK)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Finds the most similar embeddings in the database to the query embedding across ALL embeddings in the entire system.
+        /// This searches through all users' documents and conversations without any filtering.
+        /// </summary>
+        /// <param name="queryEmbedding">The query embedding vector</param>
+        /// <param name="topK">Number of results to return</param>
+        /// <returns>Task containing a list of text chunks, document IDs, document titles, and their similarity scores, ordered by similarity</returns>
+        public async Task<List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>>
+            FindSimilarEmbeddingsAsync(float[] queryEmbedding, int topK = 10)
+        {
+            var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
+
+            // Load ALL SystemKnowledgeBase embeddings from the database (excluding user documents)
+            var embeddings = await _context.Embeddings
+                .Where(e => e.Owner == EmbeddingOwner.SystemKnowledgeBase)
+                .ToListAsync();
+
+            // Calculate similarity for each embedding
+            foreach (var embedding in embeddings)
+            {
+                var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
+                var similarity = CosineSimilarity(queryEmbedding, embeddingVector);
+
+                results.Add((embedding.Text, embedding.DocumentId, embedding.DocumentTitle, similarity));
+            }
+
+            // Return top K results, ordered by similarity (highest first)
+            return results
+                .OrderByDescending(r => r.Similarity)
+                .Take(topK)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Adaptive retrieval method that finds similar embeddings using both a similarity threshold and maxK limit.
+        /// Returns all results above the threshold, up to maxK results.
+        /// This enables flexible retrieval strategies based on query intent.
+        /// When maxK is int.MaxValue, returns all matching results (no limit).
+        /// </summary>
+        /// <param name="queryEmbedding">The query embedding vector</param>
+        /// <param name="maxK">Maximum number of results to return. Use int.MaxValue for unlimited results.</param>
+        /// <param name="minSimilarity">Minimum similarity threshold (0.0 to 1.0)</param>
+        /// <returns>Task containing a list of text chunks, document IDs, document titles, and their similarity scores</returns>
+        public async Task<List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>>
+            FindSimilarEmbeddingsAdaptiveAsync(
+                float[] queryEmbedding,
+                int maxK = 10,
+                float minSimilarity = 0.70f)
+        {
+            var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
+
+            // Load ALL SystemKnowledgeBase embeddings from the database
+            var embeddings = await _context.Embeddings
+                .Where(e => e.Owner == EmbeddingOwner.SystemKnowledgeBase)
+                .ToListAsync();
+
+            // Calculate similarity for each embedding and filter by threshold
+            foreach (var embedding in embeddings)
+            {
+                var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
+                var similarity = CosineSimilarity(queryEmbedding, embeddingVector);
+
+                // Only include results above the similarity threshold
+                if (similarity >= minSimilarity)
+                {
+                    results.Add((embedding.Text, embedding.DocumentId, embedding.DocumentTitle, similarity));
+                }
+            }
+
+            // Order by similarity (highest first)
+            var orderedResults = results.OrderByDescending(r => r.Similarity);
+
+            // Return up to maxK results that meet the threshold, or all results if maxK is unlimited
+            if (maxK == int.MaxValue)
+            {
+                return orderedResults.ToList();
+            }
+
+            return orderedResults.Take(maxK).ToList();
+        }
+
+        /// <summary>
+        /// Adaptive retrieval for user's documents scoped to a conversation.
+        /// Uses both similarity threshold and maxK limit for flexible retrieval.
+        /// </summary>
+        /// <param name="queryEmbedding">The query embedding vector</param>
+        /// <param name="conversationId">The conversation ID to scope the search to</param>
+        /// <param name="maxK">Maximum number of results to return</param>
+        /// <param name="minSimilarity">Minimum similarity threshold (0.0 to 1.0)</param>
+        /// <returns>List of text chunks, document IDs, document titles, and their similarity scores</returns>
+        public List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>
+            FindSimilarEmbeddingsFromUsersDocumentsAdaptive(
+                float[] queryEmbedding,
+                int? conversationId,
+                int maxK = 10,
+                float minSimilarity = 0.70f)
+        {
+            var userId = _userContext.GetCurrentUserId();
+            var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
+
+            // Load all UserDocument embeddings from the database for the current user and conversation
+            var embeddings = _context.Embeddings
+                .Where(e => e.UserId == userId &&
+                            (conversationId == null || e.ConversationId == conversationId) &&
+                            e.Owner == EmbeddingOwner.UserDocument)
+                .ToList();
+
+            // Calculate similarity for each embedding and filter by threshold
+            foreach (var embedding in embeddings)
+            {
+                var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
+                var similarity = CosineSimilarity(queryEmbedding, embeddingVector);
+
+                // Only include results above the similarity threshold
+                if (similarity >= minSimilarity)
+                {
+                    results.Add((embedding.Text, embedding.DocumentId, embedding.DocumentTitle, similarity));
+                }
+            }
+
+            // Return up to maxK results that meet the threshold, ordered by similarity (highest first)
+            return results
+                .OrderByDescending(r => r.Similarity)
+                .Take(maxK)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Calculates the cosine similarity between two embedding vectors.
+        /// </summary>
+        /// <param name="a">First embedding vector</param>
+        /// <param name="b">Second embedding vector</param>
+        /// <returns>Cosine similarity score between 0 and 1, or 0 if vectors are different lengths</returns>
+        private float CosineSimilarity(float[] a, float[] b)
+        {
+            if (a.Length != b.Length)
+                return 0; // Return minimum similarity score instead of throwing exception
+
+            float dotProduct = 0;
+            float normA = 0;
+            float normB = 0;
+
+            for (int i = 0; i < a.Length; i++)
+            {
+                dotProduct += a[i] * b[i];
+                normA += a[i] * a[i];
+                normB += b[i] * b[i];
+            }
+
+            // Handle zero vectors
+            if (normA == 0 || normB == 0)
+                return 0;
+
+            return dotProduct / (float)(Math.Sqrt(normA) * Math.Sqrt(normB));
+        }
+
+        private byte[] ConvertToBlob(float[] embeddingData)
+        {
+            // Convert the float array to a byte array
+            // Each float is 4 bytes
+            byte[] blob = new byte[embeddingData.Length * sizeof(float)];
+
+            // Copy the float array to the byte array
+            Buffer.BlockCopy(embeddingData, 0, blob, 0, blob.Length);
+
+            return blob;
+        }
+
+        private float[] ConvertFromBlob(byte[] blob)
+        {
+            // Convert the byte array back to a float array
+            float[] embeddingData = new float[blob.Length / sizeof(float)];
+
+            // Copy the byte array to the float array
+            Buffer.BlockCopy(blob, 0, embeddingData, 0, blob.Length);
+
+            return embeddingData;
+        }
+
+        public async Task UpsertEmbeddingsAsync(IEnumerable<EmbeddingUpsertItem> items,
+            CancellationToken cancellationToken = default)
+        {
+            // Group by scope to minimize queries
+            var itemsByScope = items
+                .GroupBy(i => new { i.UserId, i.ConversationId, i.DocumentId })
+                .ToList();
+
+            foreach (var scopeGroup in itemsByScope)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var scope = scopeGroup.Key;
+
+                // Prefetch existing rows for this scope
+                var existing = await _context.Embeddings
+                    .Where(e => (scope.UserId == null ? e.UserId == null : e.UserId == scope.UserId)
+                                && (scope.ConversationId == null
+                                    ? e.ConversationId == null
+                                    : e.ConversationId == scope.ConversationId)
+                                && e.DocumentId == scope.DocumentId)
+                    .Select(e => new { e.ChunkIndex, e.Id, e.ChunkHash })
+                    .ToListAsync(cancellationToken);
+
+                var existingByIndex = existing.ToDictionary(x => x.ChunkIndex, x => x);
+
+                var toInsert = new List<Embedding>();
+                foreach (var item in scopeGroup)
+                {
+                    if (!existingByIndex.TryGetValue(item.ChunkIndex, out var existingRow))
+                    {
+                        toInsert.Add(new Embedding
+                        {
+                            Text = item.Text,
+                            EmbeddingData = ConvertToBlob(item.Vector),
+                            DocumentId = item.DocumentId,
+                            DocumentTitle = item.DocumentTitle ?? string.Empty,
+                            Owner = item.Owner,
+                            UserId = item.UserId,
+                            ConversationId = item.ConversationId,
+                            ChunkIndex = item.ChunkIndex,
+                            ChunkHash = item.ChunkHash,
+                            TrainingFolderName = item.TrainingFolderName
+                        });
+                    }
+                    else
+                    {
+                        // Update only if content changed (hash differs)
+                        if (existingRow.ChunkHash == null || !item.ChunkHash.SequenceEqual(existingRow.ChunkHash))
+                        {
+                            var entity =
+                                await _context.Embeddings.FirstAsync(e => e.Id == existingRow.Id, cancellationToken);
+                            entity.Text = item.Text;
+                            entity.EmbeddingData = ConvertToBlob(item.Vector);
+                            entity.DocumentTitle = item.DocumentTitle ?? entity.DocumentTitle;
+                            entity.Owner = item.Owner;
+                            entity.ChunkHash = item.ChunkHash;
+                            entity.TrainingFolderName = item.TrainingFolderName;
+                        }
+                    }
+                }
+
+                if (toInsert.Count > 0)
+                {
+                    await _context.Embeddings.AddRangeAsync(toInsert, cancellationToken);
+                }
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// Upserts a batch of document-only embeddings for arbitrary datasets.
+        /// This method is optimized for bulk operations and uses DocumentId + ChunkIndex as the uniqueness key.
+        /// It performs efficient bulk inserts and updates only when content has changed (based on chunk hash).
+        /// </summary>
+        /// <param name="items">The embedding items to upsert</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Task that completes when the batch upsert finishes</returns>
+        public async Task UpsertDocumentEmbeddingsAsync(IEnumerable<EmbeddingUpsertItem> items,
+            CancellationToken cancellationToken = default)
+        {
+            // Group by DocumentId to minimize queries and optimize batching
+            var itemsByDocument = items
+                .GroupBy(i => i.DocumentId)
+                .ToList();
+
+            foreach (var documentGroup in itemsByDocument)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var documentId = documentGroup.Key;
+
+                // Prefetch existing embeddings for this document
+                var existing = await _context.Embeddings
+                    .Where(e => e.DocumentId == documentId)
+                    .Select(e => new { e.ChunkIndex, e.Id, e.ChunkHash })
+                    .ToListAsync(cancellationToken);
+
+                var existingByIndex = existing.ToDictionary(x => x.ChunkIndex, x => x);
+
+                var toInsert = new List<Embedding>();
+                foreach (var item in documentGroup)
+                {
+                    if (!existingByIndex.TryGetValue(item.ChunkIndex, out var existingRow))
+                    {
+                        // New embedding - add to insert batch
+                        toInsert.Add(new Embedding
+                        {
+                            Text = item.Text,
+                            EmbeddingData = ConvertToBlob(item.Vector),
+                            DocumentId = item.DocumentId,
+                            DocumentTitle = item.DocumentTitle ?? string.Empty,
+                            Owner = item.Owner,
+                            UserId = item.UserId, // Typically null for document-only embeddings
+                            ConversationId = item.ConversationId, // Typically null for document-only embeddings
+                            ChunkIndex = item.ChunkIndex,
+                            ChunkHash = item.ChunkHash,
+                            TrainingFolderName = item.TrainingFolderName
+                        });
+                    }
+                    else
+                    {
+                        // Update only if content changed (hash differs)
+                        if (existingRow.ChunkHash == null || !item.ChunkHash.SequenceEqual(existingRow.ChunkHash))
+                        {
+                            var entity =
+                                await _context.Embeddings.FirstAsync(e => e.Id == existingRow.Id, cancellationToken);
+                            entity.Text = item.Text;
+                            entity.EmbeddingData = ConvertToBlob(item.Vector);
+                            entity.DocumentTitle = item.DocumentTitle ?? entity.DocumentTitle;
+                            entity.Owner = item.Owner;
+                            entity.ChunkHash = item.ChunkHash;
+                            entity.TrainingFolderName = item.TrainingFolderName;
+                            // Note: UserId and ConversationId are typically not updated for document-only embeddings
+                        }
+                    }
+                }
+
+                // Bulk insert new embeddings for this document
+                if (toInsert.Count > 0)
+                {
+                    await _context.Embeddings.AddRangeAsync(toInsert, cancellationToken);
+                }
+            }
+
+            // Single save operation for all changes
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+    }
+}
