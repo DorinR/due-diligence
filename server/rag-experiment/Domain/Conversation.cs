@@ -2,16 +2,14 @@ using System.ComponentModel.DataAnnotations;
 
 namespace rag_experiment.Domain
 {
+    /// <summary>
+    /// Represents a research conversation for performing due diligence on one or more companies
+    /// </summary>
     public class Conversation
     {
         public int Id { get; set; }
 
         [Required] [MaxLength(200)] public string Title { get; set; }
-
-        /// <summary>
-        /// The type of conversation - determines query context and behavior
-        /// </summary>
-        public ConversationType Type { get; set; } = ConversationType.DocumentQuery;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
@@ -23,6 +21,11 @@ namespace rag_experiment.Domain
         // Navigation properties
         public List<Document> Documents { get; set; } = new();
         public List<Message> Messages { get; set; } = new();
+        
+        /// <summary>
+        /// The companies being researched in this conversation
+        /// </summary>
+        public List<ConversationCompany> Companies { get; set; } = new();
     }
 }
 

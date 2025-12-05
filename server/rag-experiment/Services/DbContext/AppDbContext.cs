@@ -13,6 +13,7 @@ namespace rag_experiment.Services
         public DbSet<Conversation> Conversations { get; set; }
         public DbSet<Message> Messages { get; set; }
         public DbSet<MessageSource> MessageSources { get; set; }
+        public DbSet<ConversationCompany> ConversationCompanies { get; set; }
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
@@ -47,10 +48,20 @@ namespace rag_experiment.Services
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.Type).IsRequired().HasDefaultValue(ConversationType.DocumentQuery);
                 entity.HasOne(e => e.User)
                     .WithMany(u => u.Conversations)
                     .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Configure ConversationCompany entity
+            modelBuilder.Entity<ConversationCompany>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.CompanyName).IsRequired().HasMaxLength(200);
+                entity.HasOne(e => e.Conversation)
+                    .WithMany(c => c.Companies)
+                    .HasForeignKey(e => e.ConversationId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
 

@@ -7,7 +7,6 @@ using rag_experiment.Services.Events;
 using rag_experiment.Services.Auth;
 using rag_experiment.Services.BackgroundJobs;
 using rag_experiment.Services.Query.Models;
-using Hangfire;
 using Microsoft.Extensions.Options;
 
 namespace rag_experiment.Controllers
@@ -24,6 +23,7 @@ namespace rag_experiment.Controllers
         private readonly ITextProcessor _textProcessor;
         private readonly ITextChunker _textChunker;
         private readonly ChunkingSettings _chunkingSettings;
+        private readonly IDocumentProcessingJobService _documentProcessingService;
 
         public DocumentController(
             AppDbContext dbContext,
@@ -32,7 +32,8 @@ namespace rag_experiment.Controllers
             IConfiguration configuration,
             ITextProcessor textProcessor,
             ITextChunker textChunker,
-            IOptions<ChunkingSettings> chunkingSettings)
+            IOptions<ChunkingSettings> chunkingSettings,
+            IDocumentProcessingJobService documentProcessingService)
         {
             _dbContext = dbContext;
             _environment = environment;
@@ -41,6 +42,7 @@ namespace rag_experiment.Controllers
             _textProcessor = textProcessor;
             _textChunker = textChunker;
             _chunkingSettings = chunkingSettings.Value;
+            _documentProcessingService = documentProcessingService;
         }
 
         [HttpPost("upload")]
@@ -97,11 +99,12 @@ namespace rag_experiment.Controllers
 
                 await _dbContext.SaveChangesAsync();
 
-                // Enqueue background job for document processing
-                var jobId = BackgroundJob.Enqueue<DocumentProcessingJobService>(service =>
-                    service.StartProcessing(document.Id.ToString(), document.FilePath, userId.ToString(),
-                        conversationId.ToString()
-                    ));
+                // Set up the processing pipeline (synchronous call that enqueues background jobs)
+                var jobId = await _documentProcessingService.SetupProcessingPipeline(
+                    document.Id,
+                    document.FilePath,
+                    userId,
+                    conversationId);
 
                 return Ok(new
                 {

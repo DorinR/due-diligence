@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -21,57 +25,35 @@ public class ConversationController : ControllerBase
         _userContext = userContext;
     }
 
-    // Disable regular conversations for now.
-    // [HttpPost]
-    // public async Task<IActionResult> CreateConversation([FromBody] CreateConversationRequest request)
-    // {
-    //     try
-    //     {
-    //         var userId = _userContext.GetCurrentUserId();
-
-    //         var conversation = new Conversation
-    //         {
-    //             Title = request.Title,
-    //             UserId = userId,
-    //             Type = ConversationType.DocumentQuery
-    //         };
-
-    //         _dbContext.Conversations.Add(conversation);
-    //         await _dbContext.SaveChangesAsync();
-
-    //         return Ok(new
-    //         {
-    //             id = conversation.Id,
-    //             title = conversation.Title,
-    //             type = conversation.Type.ToString(),
-    //             createdAt = conversation.CreatedAt,
-    //             updatedAt = conversation.UpdatedAt
-    //         });
-    //     }
-    //     catch (Exception ex)
-    //     {
-    //         return StatusCode(500, $"An error occurred while creating the conversation: {ex.Message}");
-    //     }
-    // }
-
     /// <summary>
-    /// Creates a new conversation for querying the general knowledge base
+    /// Creates a new research conversation for the specified companies
     /// </summary>
-    /// <param name="request">Request containing the conversation title</param>
-    /// <returns>Created conversation details</returns>
-    [HttpPost("general-knowledge")]
-    public async Task<IActionResult> CreateGeneralKnowledgeConversation(
-        [FromBody] CreateConversationRequest request)
+    /// <param name="request">Request containing the list of company names to research</param>
+    /// <returns>The created conversation with associated companies</returns>
+    [HttpPost]
+    public async Task<IActionResult> CreateConversation([FromBody] CreateConversationRequest request)
     {
         try
         {
+            if (request.CompanyNames == null || request.CompanyNames.Count == 0)
+                return BadRequest("At least one company name is required");
+
             var userId = _userContext.GetCurrentUserId();
+
+            // Generate a title from the company names
+            var title = request.CompanyNames.Count == 1
+                ? $"Research: {request.CompanyNames[0]}"
+                : $"Research: {string.Join(", ", request.CompanyNames.Take(3))}" +
+                  (request.CompanyNames.Count > 3 ? $" (+{request.CompanyNames.Count - 3} more)" : "");
 
             var conversation = new Conversation
             {
-                Title = request.Title,
+                Title = title,
                 UserId = userId,
-                Type = ConversationType.GeneralKnowledge
+                Companies = request.CompanyNames.Select(name => new ConversationCompany
+                {
+                    CompanyName = name
+                }).ToList()
             };
 
             _dbContext.Conversations.Add(conversation);
@@ -81,15 +63,14 @@ public class ConversationController : ControllerBase
             {
                 id = conversation.Id,
                 title = conversation.Title,
-                type = conversation.Type.ToString(),
+                companies = conversation.Companies.Select(c => new { c.Id, c.CompanyName }),
                 createdAt = conversation.CreatedAt,
                 updatedAt = conversation.UpdatedAt
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500,
-                $"An error occurred while creating the general knowledge conversation: {ex.Message}");
+            return StatusCode(500, $"An error occurred while creating the conversation: {ex.Message}");
         }
     }
 
@@ -107,7 +88,7 @@ public class ConversationController : ControllerBase
                 {
                     c.Id,
                     c.Title,
-                    Type = c.Type.ToString(),
+                    Companies = c.Companies.Select(cc => new { cc.Id, cc.CompanyName }),
                     c.CreatedAt,
                     c.UpdatedAt,
                     DocumentCount = c.Documents.Count,
@@ -131,6 +112,7 @@ public class ConversationController : ControllerBase
             var userId = _userContext.GetCurrentUserId();
 
             var conversation = await _dbContext.Conversations
+                .Include(c => c.Companies)
                 .Include(c => c.Documents)
                 .Include(c => c.Messages)
                 .ThenInclude(m => m.Sources)
@@ -144,7 +126,7 @@ public class ConversationController : ControllerBase
             {
                 conversation.Id,
                 conversation.Title,
-                Type = conversation.Type.ToString(),
+                Companies = conversation.Companies.Select(c => new { c.Id, c.CompanyName }),
                 conversation.CreatedAt,
                 conversation.UpdatedAt,
                 Documents = conversation.Documents.Select(d => new
@@ -244,9 +226,15 @@ public class ConversationController : ControllerBase
     }
 }
 
+/// <summary>
+/// Request to create a new research conversation
+/// </summary>
 public class CreateConversationRequest
 {
-    public string Title { get; set; }
+    /// <summary>
+    /// List of company names to research in this conversation
+    /// </summary>
+    public List<string> CompanyNames { get; set; }
 }
 
 public class UpdateConversationRequest

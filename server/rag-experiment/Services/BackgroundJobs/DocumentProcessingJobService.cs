@@ -31,36 +31,46 @@ namespace rag_experiment.Services.BackgroundJobs
             _embeddingRepository = embeddingRepository;
         }
 
-        public async Task StartProcessing(string documentId, string filePath, string UserId, string ConversationId)
+        /// <summary>
+        /// Sets up the document processing pipeline by initializing state and enqueueing
+        /// the chain of background jobs. This method should be called synchronously from
+        /// the controller - only the actual processing steps run as background jobs.
+        /// </summary>
+        /// <param name="documentId">The ID of the document to process</param>
+        /// <param name="filePath">Path to the document file</param>
+        /// <param name="userId">The user who owns the document</param>
+        /// <param name="conversationId">The conversation the document belongs to</param>
+        /// <returns>The job ID of the final job in the chain, for tracking purposes</returns>
+        public async Task<string> SetupProcessingPipeline(int documentId, string filePath, int userId, int conversationId)
         {
-            var docId = int.Parse(documentId);
-
             // Initialize state
             var state = new DocumentProcessingState
             {
-                DocumentId = docId,
+                DocumentId = documentId,
                 FilePath = filePath,
                 Status = ProcessingStatus.Pending,
-                UserId = UserId,
-                ConversationId = ConversationId
+                UserId = userId.ToString(),
+                ConversationId = conversationId.ToString()
             };
             await _stateRepo.SaveStateAsync(state);
 
-            // Set up the entire job chain
-            var job1 = BackgroundJob.Enqueue<DocumentProcessingJobService>(x => x.ExtractText(docId));
+            // Set up the entire job chain (these are just DB inserts, very fast)
+            var job1 = BackgroundJob.Enqueue<DocumentProcessingJobService>(x => x.ExtractText(documentId));
 
             var job2 = BackgroundJob.ContinueJobWith<DocumentProcessingJobService>(
-                job1, x => x.ProcessChunks(docId));
+                job1, x => x.ProcessChunks(documentId));
 
             var job3 = BackgroundJob.ContinueJobWith<DocumentProcessingJobService>(
-                job2, x => x.GenerateEmbeddings(docId));
+                job2, x => x.GenerateEmbeddings(documentId));
 
             var job4 = BackgroundJob.ContinueJobWith<DocumentProcessingJobService>(
-                job3, x => x.PersistEmbeddings(docId));
+                job3, x => x.PersistEmbeddings(documentId));
 
             // Store the final job ID for tracking
             state.JobId = job4;
             await _stateRepo.SaveStateAsync(state);
+
+            return job4;
         }
 
         [AutomaticRetry(Attempts = 3)]
