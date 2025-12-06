@@ -14,6 +14,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Hangfire;
 using Hangfire.PostgreSql;
 using rag_experiment.Services.BackgroundJobs;
+using rag_experiment.Services.BackgroundJobs.Models;
 using Microsoft.Extensions.Options;
 using rag_experiment.Repositories;
 using rag_experiment.Repositories.Documents;
@@ -174,6 +175,10 @@ builder.Services.AddCors(options =>
 // Configure RAG settings from appsettings.json
 builder.Services.Configure<RagSettings>(
     builder.Configuration.GetSection("RagConfiguration"));
+
+// Configure filing ingestion defaults
+builder.Services.Configure<FilingIngestionOptions>(
+    builder.Configuration.GetSection("FilingIngestion"));
 
 // Configure OpenAI settings
 builder.Services.Configure<OpenAISettings>(

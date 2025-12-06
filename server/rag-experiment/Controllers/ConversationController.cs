@@ -5,9 +5,12 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using rag_experiment.Domain;
 using rag_experiment.Services;
 using rag_experiment.Services.Auth;
+using rag_experiment.Services.BackgroundJobs;
+using rag_experiment.Services.BackgroundJobs.Models;
 
 namespace rag_experiment.Controllers;
 
@@ -18,11 +21,19 @@ public class ConversationController : ControllerBase
 {
     private readonly AppDbContext _dbContext;
     private readonly IUserContext _userContext;
+    private readonly IDocumentProcessingJobService _documentProcessingJobService;
+    private readonly FilingIngestionOptions _filingOptions;
 
-    public ConversationController(AppDbContext dbContext, IUserContext userContext)
+    public ConversationController(
+        AppDbContext dbContext,
+        IUserContext userContext,
+        IDocumentProcessingJobService documentProcessingJobService,
+        IOptions<FilingIngestionOptions> filingOptions)
     {
         _dbContext = dbContext;
         _userContext = userContext;
+        _documentProcessingJobService = documentProcessingJobService;
+        _filingOptions = filingOptions.Value;
     }
 
     /// <summary>
@@ -71,6 +82,60 @@ public class ConversationController : ControllerBase
         catch (Exception ex)
         {
             return StatusCode(500, $"An error occurred while creating the conversation: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Sets (overwrites) the company for an existing conversation and starts ingestion.
+    /// </summary>
+    [HttpPost("company")]
+    public async Task<IActionResult> SetConversationCompany([FromBody] SetConversationCompanyRequest request)
+    {
+        try
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.CompanyName))
+                return BadRequest("Company name is required");
+
+            if (request.ConversationId <= 0)
+                return BadRequest("conversationId must be greater than zero");
+
+            var userId = _userContext.GetCurrentUserId();
+
+            var conversation = await _dbContext.Conversations
+                .Include(c => c.Companies)
+                .FirstOrDefaultAsync(c => c.Id == request.ConversationId && c.UserId == userId);
+
+            if (conversation == null)
+                return NotFound("Conversation not found");
+
+            conversation.Companies.Clear();
+            conversation.Companies.Add(new ConversationCompany { CompanyName = request.CompanyName });
+            conversation.UpdatedAt = DateTime.UtcNow;
+
+            await _dbContext.SaveChangesAsync();
+
+            var filingTypes = _filingOptions.DefaultFilingTypes ?? new List<string>();
+            if (filingTypes.Count == 0)
+                return StatusCode(500, "No default filing types configured for ingestion");
+
+            await _documentProcessingJobService.SetupFilingIngestionPipeline(
+                request.CompanyName,
+                filingTypes,
+                userId,
+                conversation.Id);
+
+            return Ok(new
+            {
+                conversation.Id,
+                conversation.Title,
+                Companies = conversation.Companies.Select(c => new { c.Id, c.CompanyName }),
+                conversation.CreatedAt,
+                conversation.UpdatedAt
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"An error occurred while setting the conversation company: {ex.Message}");
         }
     }
 
@@ -234,10 +299,26 @@ public class CreateConversationRequest
     /// <summary>
     /// List of company names to research in this conversation
     /// </summary>
-    public List<string> CompanyNames { get; set; }
+    public List<string> CompanyNames { get; set; } = new();
 }
 
 public class UpdateConversationRequest
 {
-    public string Title { get; set; }
+    public string Title { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Request to set the company for an existing conversation.
+/// </summary>
+public class SetConversationCompanyRequest
+{
+    /// <summary>
+    /// Conversation to update.
+    /// </summary>
+    public int ConversationId { get; set; }
+
+    /// <summary>
+    /// Company name to associate with the conversation.
+    /// </summary>
+    public string CompanyName { get; set; } = string.Empty;
 }
