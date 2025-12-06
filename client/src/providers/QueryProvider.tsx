@@ -11,9 +11,9 @@ export const queryClient = new QueryClient({
   },
 });
 
-interface QueryProviderProps {
+type QueryProviderProps = {
   children: ReactNode;
-}
+};
 
 export function QueryProvider({ children }: QueryProviderProps) {
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;

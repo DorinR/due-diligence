@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { useConversations } from '../api/conversation/conversationApi';
+import { useGetConversationList } from '../api/conversation/getConversationList';
 import { LoginForm } from '../components/auth/LoginForm';
 import { RegisterForm } from '../components/auth/RegisterForm';
 import { ChatApp } from '../components/ChatApp';
@@ -33,7 +33,7 @@ const ConversationLayout = ({ children }: { children: React.ReactNode }) => {
 };
 
 const DashboardRedirect = () => {
-    const { data: conversations, isLoading } = useConversations();
+    const { data: conversations, isLoading } = useGetConversationList();
 
     if (isLoading) {
         return (

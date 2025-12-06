@@ -2,12 +2,12 @@ import { UploadIcon } from '@radix-ui/react-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { useUploadDocument } from '../api/document/documentApi';
+import { useUploadDocument } from '../api/document/uploadDocument';
 
-interface FileDropzoneProps {
+type FileDropzoneProps = {
     onFilesDrop: (files: File[]) => void;
     conversationId?: string;
-}
+};
 
 export function FileDropzone({ onFilesDrop, conversationId }: FileDropzoneProps) {
     const [uploading, setUploading] = useState(false);

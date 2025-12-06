@@ -1,19 +1,19 @@
 import { Cross2Icon, PlusIcon } from '@radix-ui/react-icons';
 
-export interface Conversation {
+export type Conversation = {
     id: string;
     title: string;
     date: string;
     messageCount: number;
     isActive: boolean;
-}
+};
 
-interface ConversationsListProps {
+type ConversationsListProps = {
     conversations: Conversation[];
     onSelectConversation: (conversationId: string) => void;
     onNewConversation: () => void;
     onDeleteConversation: (conversationId: string) => void;
-}
+};
 
 export function ConversationsList({
     conversations,

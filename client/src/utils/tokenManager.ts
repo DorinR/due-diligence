@@ -6,10 +6,10 @@
 const ACCESS_TOKEN_KEY = 'accessToken';
 const REFRESH_TOKEN_KEY = 'refreshToken';
 
-export interface TokenPair {
+export type TokenPair = {
     accessToken: string;
     refreshToken: string;
-}
+};
 
 /**
  * Gets the access token from localStorage

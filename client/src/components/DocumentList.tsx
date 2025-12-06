@@ -3,20 +3,20 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useDeleteDocument } from '../api/document/deleteDocument';
 
-export interface Document {
+export type Document = {
     id: string;
     name: string;
     size: string;
     date: string;
-}
+};
 
-interface DocumentListProps {
+type DocumentListProps = {
     documents: Document[];
     onSelectDocument: (documentId: string) => void;
     onAddNewDocument: () => void;
     isLoading?: boolean;
     conversationId?: string;
-}
+};
 
 export function DocumentList({
     documents,

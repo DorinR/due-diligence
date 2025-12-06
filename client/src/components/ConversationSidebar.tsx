@@ -1,18 +1,16 @@
 import { ChatBubbleIcon, PlusIcon, TrashIcon } from '@radix-ui/react-icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import {
-    useConversations,
-    useCreateConversation,
-    useDeleteConversation,
-} from '../api/conversation/conversationApi';
+import { useGetConversationList } from '../api/conversation/getConversationList';
+import { useCreateConversation } from '../api/conversation/createConversation';
+import { useDeleteConversation } from '../api/conversation/deleteConversation';
 import { Button } from './ui/button/Button';
 
 export function ConversationSidebar() {
     const navigate = useNavigate();
     const { conversationId } = useParams<{ conversationId: string }>();
 
-    const { data: conversations, isLoading } = useConversations();
+    const { data: conversations, isLoading } = useGetConversationList();
     const { mutate: createConversation, isPending: isCreating } = useCreateConversation();
     const { mutate: deleteConversation, isPending: isDeleting } = useDeleteConversation();
 

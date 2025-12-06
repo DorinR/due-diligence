@@ -1,16 +1,16 @@
-export interface RegisterRequest {
+export type RegisterRequest = {
     email: string;
     password: string;
     firstName?: string;
     lastName?: string;
-}
+};
 
-export interface LoginRequest {
+export type LoginRequest = {
     email: string;
     password: string;
-}
+};
 
-export interface AuthResponse {
+export type AuthResponse = {
     success: boolean;
     message: string;
     user?: {
@@ -21,11 +21,11 @@ export interface AuthResponse {
     };
     accessToken?: string;
     refreshToken?: string;
-}
+};
 
-export interface User {
+export type User = {
     id: number;
     email: string;
     firstName?: string;
     lastName?: string;
-}
+};

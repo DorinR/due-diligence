@@ -1,10 +1,10 @@
 import { ExternalLink } from 'lucide-react';
-import { DocumentSource } from '../types/conversation';
+import { DocumentSource } from '../api/message/types';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card';
 
-interface SourceCitationsProps {
+type SourceCitationsProps = {
     sources?: DocumentSource[];
-}
+};
 
 /**
  * Displays source citations for assistant messages with hover card previews.

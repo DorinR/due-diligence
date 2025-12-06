@@ -1,7 +1,7 @@
 import { ChatBubbleIcon, PlusIcon } from '@radix-ui/react-icons';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useCreateConversation } from '../api/conversation/conversationApi';
+import { useCreateConversation } from '../api/conversation/createConversation';
 import { Button } from '../components/ui/button/Button';
 
 export function DashboardPage() {

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useConversation } from '../api/conversation/conversationApi';
-import { MessageRole, useSendMessage } from '../api/message/messageApi';
+import { useGetConversationById } from '../api/conversation/getConversationById';
+import { MessageRole } from '../api/message/types';
+import { useSendMessage } from '../api/message/sendMessage';
 import { ChatInterface, Message } from '../components/ChatInterface';
-import { ConversationMessage } from '../types/conversation';
+import { ConversationMessage } from '../api/message/types';
 
 // Helper function to generate a unique ID
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -24,7 +25,7 @@ export function ConversationPage() {
         isLoading: isLoadingConversation,
         error: conversationError,
         refetch: refetchConversation,
-    } = useConversation(conversationId!);
+    } = useGetConversationById(conversationId!);
 
     // Hooks for mutations
     const { mutate: sendMessage } = useSendMessage();

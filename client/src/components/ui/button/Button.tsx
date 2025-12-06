@@ -3,10 +3,10 @@ import React from 'react';
 import { cn } from '../../../lib/utils';
 
 // Import and use the exact type signature from Radix UI icons
-interface IconProps extends React.SVGAttributes<SVGElement> {
+type IconProps = React.SVGAttributes<SVGElement> & {
     children?: never;
     color?: string;
-}
+};
 
 type RadixIconComponent = React.ForwardRefExoticComponent<
     IconProps & React.RefAttributes<SVGSVGElement>
@@ -14,11 +14,11 @@ type RadixIconComponent = React.ForwardRefExoticComponent<
 
 export type ButtonVariant = 'primary' | 'neutral' | 'danger' | 'soft';
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
     variant?: ButtonVariant;
     icon?: RadixIconComponent;
     iconPosition?: 'left' | 'right';
-}
+};
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     (

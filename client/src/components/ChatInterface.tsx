@@ -2,23 +2,23 @@ import { PaperPlaneIcon } from '@radix-ui/react-icons';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { DocumentSource } from '../types/conversation';
+import { DocumentSource } from '../api/message/types';
 import { SourceCitations } from './SourceCitations';
 import { Button } from './ui/button/Button';
 
-export interface Message {
+export type Message = {
     id: string;
     text: string;
     sender: 'User' | 'Assistant' | 'System';
     timestamp: string;
     sources?: DocumentSource[];
-}
+};
 
-interface ChatInterfaceProps {
+type ChatInterfaceProps = {
     messages: Message[];
     onSendMessage: (message: string) => void;
     isLoading?: boolean;
-}
+};
 
 export function ChatInterface({
     messages,

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { useQueryAllConversations } from '../api/chat/chatApi';
-import { DocumentResponse, useDocuments } from '../api/document/documentApi';
+import { useGetConversationQueryList } from '../api/chat/getConversationQueryList';
+import { DocumentResponse } from '../api/document/types';
+import { useGetDocumentList } from '../api/document/getDocumentList';
 import { ChatInterface, Message } from './ChatInterface';
 import { Conversation, ConversationsList } from './ConversationsList';
 import { Document } from './DocumentList';
@@ -19,10 +20,10 @@ export function ChatApp() {
     const [isLoading, setIsLoading] = useState(false);
 
     // Use the query-all-conversations mutation hook for legacy support
-    const { mutate: sendQuery, isPending } = useQueryAllConversations();
+    const { mutate: sendQuery, isPending } = useGetConversationQueryList();
 
     // Fetch documents from the server
-    const { data: serverDocuments, isLoading: isLoadingDocuments } = useDocuments();
+    const { data: serverDocuments, isLoading: isLoadingDocuments } = useGetDocumentList();
 
     // Format server documents to match our UI model
     const formatServerDocument = useCallback((doc: DocumentResponse): Document => {
