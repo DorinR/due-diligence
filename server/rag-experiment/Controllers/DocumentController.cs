@@ -5,121 +5,37 @@ using rag_experiment.Domain;
 using rag_experiment.Services;
 using rag_experiment.Services.Events;
 using rag_experiment.Services.Auth;
-using rag_experiment.Services.BackgroundJobs;
 using rag_experiment.Services.Query.Models;
 using Microsoft.Extensions.Options;
 
 namespace rag_experiment.Controllers
 {
     [ApiController]
-    [Authorize] // Require authentication for all endpoints
+    [Authorize]
     [Route("api/[controller]")]
     public class DocumentController : ControllerBase
     {
         private readonly AppDbContext _dbContext;
         private readonly IWebHostEnvironment _environment;
         private readonly IUserContext _userContext;
-        private readonly IConfiguration _configuration;
         private readonly ITextProcessor _textProcessor;
         private readonly ITextChunker _textChunker;
         private readonly ChunkingSettings _chunkingSettings;
-        private readonly IDocumentProcessingJobService _documentProcessingService;
 
         public DocumentController(
             AppDbContext dbContext,
             IWebHostEnvironment environment,
             IUserContext userContext,
-            IConfiguration configuration,
             ITextProcessor textProcessor,
             ITextChunker textChunker,
-            IOptions<ChunkingSettings> chunkingSettings,
-            IDocumentProcessingJobService documentProcessingService)
+            IOptions<ChunkingSettings> chunkingSettings)
         {
             _dbContext = dbContext;
             _environment = environment;
             _userContext = userContext;
-            _configuration = configuration;
             _textProcessor = textProcessor;
             _textChunker = textChunker;
             _chunkingSettings = chunkingSettings.Value;
-            _documentProcessingService = documentProcessingService;
-        }
-
-        [HttpPost("upload")]
-        public async Task<IActionResult> UploadDocument(IFormFile file, [FromForm] int conversationId,
-            [FromForm] string description = "")
-        {
-            if (file == null || file.Length == 0)
-                return BadRequest("No file uploaded");
-
-            try
-            {
-                var userId = _userContext.GetCurrentUserId();
-
-                // Verify conversation exists and belongs to user
-                var conversation = await _dbContext.Conversations
-                    .FirstOrDefaultAsync(c => c.Id == conversationId && c.UserId == userId);
-
-                if (conversation == null)
-                    return NotFound("Conversation not found or you don't have access to it");
-
-                // Create uploads directory if it doesn't exist
-                var uploadPath = _configuration["DocumentStorage:UploadPath"] ?? "Uploads";
-                var uploadsDirectory = Path.Combine(_environment.ContentRootPath, uploadPath);
-                if (!Directory.Exists(uploadsDirectory))
-                    Directory.CreateDirectory(uploadsDirectory);
-
-                // Generate a unique filename
-                var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
-                var filePath = Path.Combine(uploadsDirectory, fileName);
-
-                // Save the file
-                using (var stream = new FileStream(filePath, FileMode.Create))
-                {
-                    await file.CopyToAsync(stream);
-                }
-
-                // Create document record
-                var document = new Document
-                {
-                    FileName = fileName,
-                    OriginalFileName = file.FileName,
-                    ContentType = file.ContentType,
-                    FileSize = file.Length,
-                    FilePath = filePath,
-                    Description = description,
-                    ConversationId = conversationId
-                };
-
-                // Save to database
-                _dbContext.Documents.Add(document);
-
-                // Update conversation's UpdatedAt timestamp
-                conversation.UpdatedAt = DateTime.UtcNow;
-
-                await _dbContext.SaveChangesAsync();
-
-                // Set up the processing pipeline (synchronous call that enqueues background jobs)
-                var jobId = await _documentProcessingService.SetupProcessingPipeline(
-                    document.Id,
-                    document.FilePath,
-                    userId,
-                    conversationId);
-
-                return Ok(new
-                {
-                    documentId = document.Id,
-                    fileName = document.OriginalFileName,
-                    fileSize = document.FileSize,
-                    conversationId = conversationId,
-                    jobId = jobId,
-                    message = "Document uploaded successfully and processing job queued"
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"An error occurred while uploading the document: {ex.Message}");
-            }
         }
 
         [HttpGet("conversation/{conversationId}")]
@@ -129,7 +45,6 @@ namespace rag_experiment.Controllers
             {
                 var userId = _userContext.GetCurrentUserId();
 
-                // Verify conversation exists and belongs to user
                 var conversationExists = await _dbContext.Conversations
                     .AnyAsync(c => c.Id == conversationId && c.UserId == userId);
 
@@ -195,7 +110,6 @@ namespace rag_experiment.Controllers
             {
                 var userId = _userContext.GetCurrentUserId();
 
-                // Find the document with conversation relationship
                 var document = await _dbContext.Documents
                     .Include(d => d.Conversation)
                     .FirstOrDefaultAsync(d => d.Id == id && d.Conversation.UserId == userId);
@@ -203,21 +117,16 @@ namespace rag_experiment.Controllers
                 if (document == null)
                     return NotFound("Document not found or you don't have access to it");
 
-                // Delete the physical file
                 if (System.IO.File.Exists(document.FilePath))
                 {
                     System.IO.File.Delete(document.FilePath);
                 }
 
-                // Delete the document record
                 _dbContext.Documents.Remove(document);
-
-                // Update conversation's UpdatedAt timestamp
                 document.Conversation.UpdatedAt = DateTime.UtcNow;
 
                 await _dbContext.SaveChangesAsync();
 
-                // Publish document deleted event
                 EventBus.Publish(new DocumentDeletedEvent(id));
 
                 return Ok(new { message = "Document and associated embeddings deleted successfully" });
@@ -261,17 +170,13 @@ namespace rag_experiment.Controllers
 
         /// <summary>
         /// Estimates the total number of tokens for all .txt files in the token-estimation directory.
-        /// This endpoint processes files through the same pipeline used for document ingestion
-        /// (text processing, chunking) and provides token count estimation for cost calculation.
         /// </summary>
-        /// <returns>Token estimation results including total tokens and per-file breakdown</returns>
         [HttpPost("estimate-tokens")]
-        [AllowAnonymous] // Allow access without authentication for token estimation
+        [AllowAnonymous]
         public async Task<IActionResult> EstimateTokensForDirectory()
         {
             try
             {
-                // Define the fixed directory path
                 var tokenEstimationPath = Path.Combine(_environment.ContentRootPath, "Test Data", "token-estimation");
 
                 if (!Directory.Exists(tokenEstimationPath))
@@ -279,7 +184,6 @@ namespace rag_experiment.Controllers
                     return BadRequest($"Token estimation directory does not exist: {tokenEstimationPath}");
                 }
 
-                // Get all .txt files in the directory
                 var txtFiles = Directory.GetFiles(tokenEstimationPath, "*.txt", SearchOption.TopDirectoryOnly);
 
                 if (!txtFiles.Any())
@@ -303,19 +207,14 @@ namespace rag_experiment.Controllers
                 {
                     try
                     {
-                        // Read the file content
                         var rawText = await System.IO.File.ReadAllTextAsync(filePath);
                         var originalLength = rawText.Length;
 
-                        // Process the text through the same pipeline used in document ingestion
                         var processedText = _textProcessor.ProcessText(rawText);
                         var processedLength = processedText.Length;
 
-                        // Chunk the text using configured settings
                         var chunks = _textChunker.ChunkText(processedText);
 
-                        // Estimate tokens using the same logic as OpenAI embedding service
-                        // (1 token ≈ 4 characters)
                         var fileTokens = chunks.Sum(chunk => chunk.Length / 4);
                         var fileChunks = chunks.Count;
 
@@ -347,13 +246,9 @@ namespace rag_experiment.Controllers
                     }
                 }
 
-                // Calculate cost estimations for both sync and batch APIs
-                // Sync API: $0.065 per 1M tokens
-                // Batch API: $0.00013 per 1M tokens
                 var syncApiCostUsd = (totalTokens / 1000000.0) * 0.065;
                 var batchApiCostUsd = (totalTokens / 1000000.0) * 0.00013;
 
-                // Calculate estimates for full corpus (12,000 files) based on average tokens per file
                 var averageTokensPerFile = txtFiles.Length > 0 ? totalTokens / txtFiles.Length : 0;
                 var fullCorpusSize = 12000;
                 var fullCorpusTotalTokens = averageTokensPerFile * fullCorpusSize;

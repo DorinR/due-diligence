@@ -19,6 +19,7 @@ using rag_experiment.Repositories;
 using rag_experiment.Repositories.Documents;
 using rag_experiment.Repositories.Conversations;
 using rag_experiment.Services.Ingestion.TextExtraction;
+using rag_experiment.Services.FilingDownloader;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -218,7 +219,6 @@ builder.Services.AddScoped<IDocumentIngestionService, DocumentIngestionService>(
 builder.Services.AddScoped<EmbeddingRepository>();
 builder.Services.AddScoped<IQueryPreprocessor, QueryPreprocessor>();
 builder.Services.AddScoped<ILlmService, OpenAILlmService>();
-builder.Services.AddSingleton<IDocumentProcessingStateRepository, InMemoryDocumentProcessingStateRepository>();
 builder.Services.AddScoped<IEmbeddingRepository, EmbeddingRepository>();
 builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
 builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
@@ -284,7 +284,13 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 });
 
 // Register Hangfire services
+builder.Services.AddScoped<IDocumentProcessingJobService, DocumentProcessingJobService>();
 builder.Services.AddScoped<DocumentProcessingJobService>();
+
+// Register Filing Downloader services
+// SecEdgarClient is registered with HttpClient for proper connection management
+builder.Services.AddHttpClient<IFilingDownloader, SecEdgarClient>();
+builder.Services.AddScoped<IFilingPersistor, LocalFilingPersistor>();
 
 // Configure Hangfire with PostgreSQL storage
 builder.Services.AddHangfire(configuration => configuration
