@@ -18,14 +18,12 @@ interface ChatInterfaceProps {
     messages: Message[];
     onSendMessage: (message: string) => void;
     isLoading?: boolean;
-    conversationType?: 'DocumentQuery' | 'GeneralKnowledge';
 }
 
 export function ChatInterface({
     messages,
     onSendMessage,
     isLoading = false,
-    conversationType = 'DocumentQuery',
 }: ChatInterfaceProps) {
     const [inputValue, setInputValue] = useState('');
 
@@ -44,15 +42,11 @@ export function ChatInterface({
     };
 
     const getEmptyStateText = () => {
-        return conversationType === 'GeneralKnowledge'
-            ? 'Ask any legal question'
-            : 'Ask questions about your documents';
+        return 'Ask questions about your documents';
     };
 
     const getPlaceholderText = () => {
-        return conversationType === 'GeneralKnowledge'
-            ? 'Ask a legal question...'
-            : 'Ask a question about your documents...';
+        return 'Ask a question about your documents...';
     };
 
     return (

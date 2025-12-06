@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
     useConversations,
-    useCreateGeneralKnowledgeConversation,
+    useCreateConversation,
     useDeleteConversation,
 } from '../api/conversation/conversationApi';
 import { Button } from './ui/button/Button';
@@ -13,40 +13,19 @@ export function ConversationSidebar() {
     const { conversationId } = useParams<{ conversationId: string }>();
 
     const { data: conversations, isLoading } = useConversations();
-    // const { mutate: createConversation, isPending: isCreating } = useCreateConversation();
-    const { mutate: createGeneralKnowledgeConversation, isPending: isCreatingGK } =
-        useCreateGeneralKnowledgeConversation();
+    const { mutate: createConversation, isPending: isCreating } = useCreateConversation();
     const { mutate: deleteConversation, isPending: isDeleting } = useDeleteConversation();
 
-    // const handleNewConversation = () => {
-    //     createConversation(
-    //         { title: 'New Conversation' },
-    //         {
-    //             onSuccess: newConversation => {
-    //                 navigate(`/conversations/${newConversation.id}`);
-    //                 toast.success('New conversation created');
-    //             },
-    //             onError: () => {
-    //                 toast.error('Failed to create conversation');
-    //             },
-    //         }
-    //     );
-    // };
-
-    const handleNewGeneralKnowledgeConversation = () => {
-        console.log('🎯 Creating general knowledge conversation...');
-        createGeneralKnowledgeConversation(
-            { title: 'General questions about the knowledge base' },
+    const handleNewConversation = () => {
+        createConversation(
+            {},
             {
                 onSuccess: newConversation => {
-                    console.log('✅ General knowledge conversation created:', newConversation);
-                    console.log('🧭 Navigating to:', `/conversations/${newConversation.id}`);
                     navigate(`/conversations/${newConversation.id}`);
-                    toast.success('General knowledge conversation created');
+                    toast.success('New conversation created');
                 },
-                onError: error => {
-                    console.error('❌ Failed to create general knowledge conversation:', error);
-                    toast.error('Failed to create general knowledge conversation');
+                onError: () => {
+                    toast.error('Failed to create conversation');
                 },
             }
         );
@@ -117,7 +96,7 @@ export function ConversationSidebar() {
             {/* Header with conversation creation buttons */}
             <div className="border-b border-gray-200 p-4">
                 <div className="space-y-2">
-                    {/* <Button
+                    <Button
                         onClick={handleNewConversation}
                         disabled={isCreating}
                         variant="primary"
@@ -126,16 +105,6 @@ export function ConversationSidebar() {
                         className="w-full"
                     >
                         {isCreating ? 'Creating...' : 'New Conversation'}
-                    </Button> */}
-                    <Button
-                        onClick={handleNewGeneralKnowledgeConversation}
-                        disabled={isCreatingGK}
-                        variant="primary"
-                        icon={PlusIcon}
-                        iconPosition="left"
-                        className="w-full"
-                    >
-                        {isCreatingGK ? 'Creating...' : 'New Conversation'}
                     </Button>
                 </div>
             </div>

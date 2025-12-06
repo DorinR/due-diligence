@@ -3,12 +3,17 @@ export interface Conversation {
     title: string;
     createdAt: string;
     updatedAt: string;
-    type?: 'DocumentQuery' | 'GeneralKnowledge'; // Updated to match backend response
+    companies: ConversationCompany[];
 }
 
 export interface ConversationWithDetails extends Conversation {
     documents: ConversationDocument[];
     messages: ConversationMessage[];
+}
+
+export interface ConversationCompany {
+    id: string;
+    companyName: string;
 }
 
 export interface ConversationDocument {
@@ -44,7 +49,7 @@ export interface DocumentSource {
 export interface ConversationMessage {
     id: string;
     text: string;
-    role: 'User' | 'Assistant' | 'System';
+    role: "User" | "Assistant" | "System";
     timestamp: string;
     conversationId: string;
     sources?: DocumentSource[]; // Only populated for Assistant messages

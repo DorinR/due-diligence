@@ -1,12 +1,12 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Conversation,
     ConversationWithDetails,
     CreateConversationRequest,
     DocumentSource,
     UpdateConversationRequest,
-} from '../../types/conversation';
-import { backendAccessPoint } from '../backendAccessPoint';
+} from "../../types/conversation";
+import { backendAccessPoint } from "../backendAccessPoint";
 
 // Server response format for conversation with details (matching your JSON example)
 interface ConversationWithDetailsFromServer {
@@ -14,6 +14,10 @@ interface ConversationWithDetailsFromServer {
     title: string;
     createdAt: string;
     updatedAt: string;
+    companies?: Array<{
+        id: number;
+        companyName: string;
+    }>;
     documents: Array<{
         id: number;
         originalFileName: string;
@@ -24,13 +28,12 @@ interface ConversationWithDetailsFromServer {
     }>;
     messages: Array<{
         id: number;
-        role: 'User' | 'Assistant' | 'System';
+        role: "User" | "Assistant" | "System";
         content: string;
         timestamp: string;
         metadata: any | null;
         sources?: DocumentSource[]; // Source citations for Assistant messages
     }>;
-    type: 'DocumentQuery' | 'GeneralKnowledge';
 }
 
 /**
@@ -39,21 +42,11 @@ interface ConversationWithDetailsFromServer {
 export const createConversation = async (
     data: CreateConversationRequest = {}
 ): Promise<Conversation> => {
-    const response = await backendAccessPoint.post<Conversation>('/api/conversation', data);
-    return response.data;
-};
-
-/**
- * Creates a new general knowledge conversation
- */
-export const createGeneralKnowledgeConversation = async (
-    data: CreateConversationRequest = {}
-): Promise<Conversation> => {
     const response = await backendAccessPoint.post<Conversation>(
-        '/api/conversation/general-knowledge',
+        "/api/conversation",
         data
     );
-    return response.data; // Backend already returns the correct type
+    return response.data;
 };
 
 /**
@@ -66,28 +59,10 @@ export const useCreateConversation = () => {
         mutationFn: createConversation,
         onSuccess: () => {
             // Invalidate conversations list to refetch
-            queryClient.invalidateQueries({ queryKey: ['conversations'] });
+            queryClient.invalidateQueries({ queryKey: ["conversations"] });
         },
-        onError: error => {
-            console.error('Error creating conversation:', error);
-        },
-    });
-};
-
-/**
- * Hook that uses TanStack Query's useMutation to handle general knowledge conversation creation
- */
-export const useCreateGeneralKnowledgeConversation = () => {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: createGeneralKnowledgeConversation,
-        onSuccess: () => {
-            // Invalidate conversations list to refetch
-            queryClient.invalidateQueries({ queryKey: ['conversations'] });
-        },
-        onError: error => {
-            console.error('Error creating general knowledge conversation:', error);
+        onError: (error) => {
+            console.error("Error creating conversation:", error);
         },
     });
 };
@@ -96,8 +71,20 @@ export const useCreateGeneralKnowledgeConversation = () => {
  * Fetches all conversations for the current user
  */
 export const fetchConversations = async (): Promise<Conversation[]> => {
-    const response = await backendAccessPoint.get<Conversation[]>('/api/conversation');
-    return response.data;
+    const response =
+        await backendAccessPoint.get<Array<ConversationWithDetailsFromServer>>(
+            "/api/conversation"
+        );
+    return response.data.map((conv) => ({
+        id: conv.id,
+        title: conv.title,
+        createdAt: conv.createdAt,
+        updatedAt: conv.updatedAt,
+        companies: conv.companies?.map((c) => ({
+            id: c.id.toString(),
+            companyName: c.companyName,
+        })),
+    }));
 };
 
 /**
@@ -105,7 +92,7 @@ export const fetchConversations = async (): Promise<Conversation[]> => {
  */
 export const useConversations = () => {
     return useQuery({
-        queryKey: ['conversations'],
+        queryKey: ["conversations"],
         queryFn: fetchConversations,
         refetchOnMount: true,
     });
@@ -117,9 +104,10 @@ export const useConversations = () => {
 export const fetchConversationById = async (
     conversationId: string
 ): Promise<ConversationWithDetails> => {
-    const response = await backendAccessPoint.get<ConversationWithDetailsFromServer>(
-        `/api/conversation/${conversationId}`
-    );
+    const response =
+        await backendAccessPoint.get<ConversationWithDetailsFromServer>(
+            `/api/conversation/${conversationId}`
+        );
 
     const serverData = response.data;
 
@@ -129,7 +117,11 @@ export const fetchConversationById = async (
         title: serverData.title,
         createdAt: serverData.createdAt,
         updatedAt: serverData.updatedAt,
-        documents: serverData.documents.map(doc => ({
+        companies: serverData.companies?.map((c) => ({
+            id: c.id.toString(),
+            companyName: c.companyName,
+        })),
+        documents: serverData.documents.map((doc) => ({
             id: doc.id.toString(),
             originalFileName: doc.originalFileName,
             contentType: doc.contentType,
@@ -138,7 +130,7 @@ export const fetchConversationById = async (
             description: doc.description,
             conversationId: conversationId,
         })),
-        messages: serverData.messages.map(msg => ({
+        messages: serverData.messages.map((msg) => ({
             id: msg.id.toString(),
             text: msg.content,
             role: msg.role,
@@ -146,7 +138,6 @@ export const fetchConversationById = async (
             conversationId: conversationId,
             sources: msg.sources,
         })),
-        type: serverData.type,
     };
 
     return convertedData;
@@ -157,7 +148,7 @@ export const fetchConversationById = async (
  */
 export const useConversation = (conversationId: string) => {
     return useQuery({
-        queryKey: ['conversation', conversationId],
+        queryKey: ["conversation", conversationId],
         queryFn: () => fetchConversationById(conversationId),
         enabled: !!conversationId,
         refetchOnMount: true,
@@ -192,14 +183,16 @@ export const useUpdateConversation = () => {
             conversationId: string;
             data: UpdateConversationRequest;
         }) => updateConversation(conversationId, data),
-        onSuccess: updatedConversation => {
+        onSuccess: (updatedConversation) => {
             // Update the conversations list cache
-            queryClient.invalidateQueries({ queryKey: ['conversations'] });
+            queryClient.invalidateQueries({ queryKey: ["conversations"] });
             // Update the specific conversation cache
-            queryClient.invalidateQueries({ queryKey: ['conversation', updatedConversation.id] });
+            queryClient.invalidateQueries({
+                queryKey: ["conversation", updatedConversation.id],
+            });
         },
-        onError: error => {
-            console.error('Error updating conversation:', error);
+        onError: (error) => {
+            console.error("Error updating conversation:", error);
         },
     });
 };
@@ -207,7 +200,9 @@ export const useUpdateConversation = () => {
 /**
  * Deletes a conversation and all its associated data
  */
-export const deleteConversation = async (conversationId: string): Promise<void> => {
+export const deleteConversation = async (
+    conversationId: string
+): Promise<void> => {
     await backendAccessPoint.delete(`/api/conversation/${conversationId}`);
 };
 
@@ -221,10 +216,10 @@ export const useDeleteConversation = () => {
         mutationFn: deleteConversation,
         onSuccess: () => {
             // Invalidate conversations list to refetch
-            queryClient.invalidateQueries({ queryKey: ['conversations'] });
+            queryClient.invalidateQueries({ queryKey: ["conversations"] });
         },
-        onError: error => {
-            console.error('Error deleting conversation:', error);
+        onError: (error) => {
+            console.error("Error deleting conversation:", error);
         },
     });
 };

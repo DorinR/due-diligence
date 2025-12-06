@@ -42,29 +42,20 @@ public class ConversationController : ControllerBase
     /// <param name="request">Request containing the list of company names to research</param>
     /// <returns>The created conversation with associated companies</returns>
     [HttpPost]
-    public async Task<IActionResult> CreateConversation([FromBody] CreateConversationRequest request)
+    public async Task<IActionResult> CreateConversation()
     {
         try
         {
-            if (request.CompanyNames == null || request.CompanyNames.Count == 0)
-                return BadRequest("At least one company name is required");
-
             var userId = _userContext.GetCurrentUserId();
 
-            // Generate a title from the company names
-            var title = request.CompanyNames.Count == 1
-                ? $"Research: {request.CompanyNames[0]}"
-                : $"Research: {string.Join(", ", request.CompanyNames.Take(3))}" +
-                  (request.CompanyNames.Count > 3 ? $" (+{request.CompanyNames.Count - 3} more)" : "");
+            // Default title with timestamp to avoid empty titles
+            var title = $"Conversation {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss 'UTC'}";
 
             var conversation = new Conversation
             {
                 Title = title,
                 UserId = userId,
-                Companies = request.CompanyNames.Select(name => new ConversationCompany
-                {
-                    CompanyName = name
-                }).ToList()
+                Companies = new List<ConversationCompany>()
             };
 
             _dbContext.Conversations.Add(conversation);
@@ -296,10 +287,6 @@ public class ConversationController : ControllerBase
 /// </summary>
 public class CreateConversationRequest
 {
-    /// <summary>
-    /// List of company names to research in this conversation
-    /// </summary>
-    public List<string> CompanyNames { get; set; } = new();
 }
 
 public class UpdateConversationRequest
