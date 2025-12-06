@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useGetConversationById } from '../api/conversation/getConversationById';
@@ -6,6 +6,8 @@ import { MessageRole } from '../api/message/types';
 import { useSendMessage } from '../api/message/sendMessage';
 import { ChatInterface, Message } from '../components/ChatInterface';
 import { ConversationMessage } from '../api/message/types';
+import { useSetConversationCompany } from '../api/conversation/setConversationCompany';
+import { Button } from '../components/ui/button/Button';
 
 // Helper function to generate a unique ID
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -29,6 +31,12 @@ export function ConversationPage() {
 
     // Hooks for mutations
     const { mutate: sendMessage } = useSendMessage();
+    const {
+        mutate: setConversationCompany,
+        isPending: isSettingCompany,
+    } = useSetConversationCompany();
+
+    const [selectedCompany, setSelectedCompany] = useState('');
 
     // Convert conversation messages to chat interface format
     const convertMessagesToChat = useCallback(
@@ -108,6 +116,65 @@ export function ConversationPage() {
         [conversationId, sendMessage, refetchConversation]
     );
 
+    const hasCompanies = useMemo(
+        () => (conversation?.companies?.length ?? 0) > 0,
+        [conversation?.companies?.length]
+    );
+
+    const companyOptions = useMemo(
+        () => ['Apple', 'Microsoft', 'Amazon', 'Alphabet', 'Berkshire Hathaway'],
+        []
+    );
+
+    const handleResearch = () => {
+        if (!conversationId || !selectedCompany) return;
+
+        setConversationCompany(
+            { conversationId, companyName: selectedCompany },
+            {
+                onSuccess: () => {
+                    toast.success('Company set for research.');
+                    setSelectedCompany('');
+                    refetchConversation();
+                },
+                onError: () => {
+                    toast.error('Failed to set company. Please try again.');
+                },
+            }
+        );
+    };
+
+    const renderCompanySelector = (
+        <div className="flex h-full items-center justify-center">
+            <div className="flex flex-col items-center gap-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="text-lg font-semibold text-gray-900">Choose a company</div>
+                <select
+                    className="w-64 rounded border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={selectedCompany}
+                    onChange={e => setSelectedCompany(e.target.value)}
+                >
+                    <option value="" disabled>
+                        Choose a company
+                    </option>
+                    {companyOptions.map(option => (
+                        <option key={option} value={option}>
+                            {option}
+                        </option>
+                    ))}
+                </select>
+                {selectedCompany && (
+                    <Button
+                        variant="primary"
+                        onClick={handleResearch}
+                        disabled={isSettingCompany}
+                    >
+                        {isSettingCompany ? 'Loading...' : 'Research'}
+                    </Button>
+                )}
+            </div>
+        </div>
+    );
+
     // Redirect if conversation doesn't exist
     if (!conversationId) {
         return <Navigate to="/" replace />;
@@ -151,6 +218,8 @@ export function ConversationPage() {
                     onSendMessage={handleSendMessage}
                     isLoading={isLoading}
                     conversationType={conversation?.type}
+                    showInput={hasCompanies}
+                    emptyStateContent={!hasCompanies ? renderCompanySelector : undefined}
                 />
             </div>
         </div>
