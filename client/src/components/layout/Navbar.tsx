@@ -26,7 +26,7 @@ export const Navbar = () => {
             <div className="mx-auto px-8">
                 <div className="flex items-center justify-between py-4">
                     <Link to="/" className="flex items-center space-x-4 no-underline">
-                        <div className="font-title text-2xl">semantica</div>
+                        <div className="font-title text-2xl">Fincite</div>
                     </Link>
                     <div className="flex items-center space-x-4">
                         {isAuthenticated ? (
