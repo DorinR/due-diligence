@@ -1,9 +1,9 @@
-import { ExitIcon, MoonIcon, SunIcon } from '@radix-ui/react-icons';
-import { Avatar, Text } from '@radix-ui/themes';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../providers/ThemeProvider';
-import { Button } from '../ui/button/Button';
+import { ExitIcon, MoonIcon, SunIcon } from "@radix-ui/react-icons";
+import { Avatar, Text } from "@radix-ui/themes";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import { useTheme } from "../../providers/ThemeProvider";
+import { Button } from "../ui/button/Button";
 
 const ENABLE_THEME_TOGGLE = false;
 
@@ -14,18 +14,21 @@ export const Navbar = () => {
 
     const handleLogout = async () => {
         await logout();
-        navigate('/login');
+        navigate("/login");
     };
 
     const toggleTheme = () => {
-        setTheme(theme === 'dark' ? 'light' : 'dark');
+        setTheme(theme === "dark" ? "light" : "dark");
     };
 
     return (
         <nav className="border-b-2 border-gray-300 bg-gray-100">
             <div className="mx-auto px-8">
                 <div className="flex items-center justify-between py-4">
-                    <Link to="/" className="flex items-center space-x-4 no-underline">
+                    <Link
+                        to="/"
+                        className="flex items-center space-x-4 no-underline"
+                    >
                         <div className="font-title text-2xl">Fincite</div>
                     </Link>
                     <div className="flex items-center space-x-4">
@@ -35,10 +38,17 @@ export const Navbar = () => {
                                     <Avatar
                                         size="2"
                                         radius="full"
-                                        fallback={user?.email?.[0].toUpperCase() || '?'}
+                                        fallback={
+                                            user?.email?.[0].toUpperCase() ||
+                                            "?"
+                                        }
                                         color="blue"
                                     />
-                                    <Text size="2" weight="medium" className="text-foreground">
+                                    <Text
+                                        size="2"
+                                        weight="medium"
+                                        className="text-foreground"
+                                    >
                                         {user?.email}
                                     </Text>
                                 </div>
@@ -67,7 +77,7 @@ export const Navbar = () => {
                                 className="hover:bg-muted dark:hover:bg-muted rounded-lg p-2"
                                 aria-label="Toggle theme"
                             >
-                                {theme === 'dark' ? (
+                                {theme === "dark" ? (
                                     <SunIcon className="text-foreground h-5 w-5" />
                                 ) : (
                                     <MoonIcon className="text-foreground h-5 w-5" />
