@@ -201,10 +201,6 @@ builder.Services.AddHttpClient("OpenAI", (serviceProvider, client) =>
 // Legacy services (OpenAILlmService, QueryPreprocessor, etc.) remain unchanged for stability
 builder.Services.AddScoped<ILlmClientFactory, LlmClientFactory>();
 
-// Register Markdown table service with configurable file path
-var markdownTablePath = builder.Configuration["MarkdownTablePath"] ?? "experiment_results.md";
-builder.Services.AddSingleton(new MarkdownTableService(markdownTablePath));
-
 // Register HttpClient services
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient<QueryPreprocessor>();

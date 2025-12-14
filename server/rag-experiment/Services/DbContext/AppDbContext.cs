@@ -6,7 +6,6 @@ namespace rag_experiment.Services
     public class AppDbContext : DbContext
     {
         public DbSet<Embedding> Embeddings { get; set; }
-        public DbSet<ExperimentResult> ExperimentResults { get; set; }
         public DbSet<Document> Documents { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
