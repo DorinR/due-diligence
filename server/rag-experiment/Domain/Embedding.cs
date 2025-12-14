@@ -1,3 +1,5 @@
+using Pgvector;
+
 namespace rag_experiment.Domain
 {
     /// <summary>
@@ -21,7 +23,12 @@ namespace rag_experiment.Domain
     {
         public int Id { get; set; }
         public string Text { get; set; }
-        public byte[] EmbeddingData { get; set; }
+
+        /// <summary>
+        /// The embedding vector stored as a native PostgreSQL vector type via pgvector.
+        /// This enables efficient similarity searches directly in the database.
+        /// </summary>
+        public Vector EmbeddingData { get; set; }
         public string DocumentId { get; set; }
         public string DocumentTitle { get; set; }
         public int ChunkIndex { get; set; }

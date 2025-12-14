@@ -5,6 +5,10 @@ namespace rag_experiment.Services
 {
     public class AppDbContext : DbContext
     {
+        /// <summary>
+        /// The dimensionality of the embedding vectors (OpenAI text-embedding-3-small uses 1536 dimensions)
+        /// </summary>
+        private const int EmbeddingDimensions = 1536;
         public DbSet<Embedding> Embeddings { get; set; }
         public DbSet<Document> Documents { get; set; }
         public DbSet<User> Users { get; set; }
@@ -21,6 +25,9 @@ namespace rag_experiment.Services
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // Enable pgvector extension for vector similarity search
+            modelBuilder.HasPostgresExtension("vector");
 
             // Configure User entity
             modelBuilder.Entity<User>(entity =>
@@ -123,7 +130,12 @@ namespace rag_experiment.Services
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Text).IsRequired();
-                entity.Property(e => e.EmbeddingData).IsRequired();
+
+                // Configure EmbeddingData as a pgvector column with specified dimensions
+                entity.Property(e => e.EmbeddingData)
+                    .IsRequired()
+                    .HasColumnType($"vector({EmbeddingDimensions})");
+
                 entity.Property(e => e.DocumentId).IsRequired();
                 entity.Property(e => e.DocumentTitle).IsRequired();
                 entity.Property(e => e.ChunkIndex).IsRequired();
@@ -139,6 +151,11 @@ namespace rag_experiment.Services
                     .HasForeignKey(e => e.ConversationId)
                     .OnDelete(DeleteBehavior.SetNull)
                     .IsRequired(false); // Make the relationship optional
+
+                // Add HNSW index for fast approximate nearest neighbor searches using cosine distance
+                entity.HasIndex(e => e.EmbeddingData)
+                    .HasMethod("hnsw")
+                    .HasOperators("vector_cosine_ops");
             });
         }
     }

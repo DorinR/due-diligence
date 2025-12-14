@@ -275,7 +275,11 @@ else
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseNpgsql(connectionString);
+    // Configure Npgsql with pgvector support for vector similarity search
+    options.UseNpgsql(connectionString, npgsqlOptions =>
+    {
+        npgsqlOptions.UseVector();
+    });
 
     // Configure EF Core logging based on configuration
     var loggingEnabled = builder.Configuration.GetValue<bool>("Logging:EntityFramework:Enabled", false);

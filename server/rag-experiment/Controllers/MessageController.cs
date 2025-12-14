@@ -13,6 +13,8 @@ using rag_experiment.Repositories.Conversations;
 using rag_experiment.Services.Query;
 using System.Text;
 using System.Linq;
+using Pgvector;
+using Pgvector.EntityFrameworkCore;
 
 namespace rag_experiment.Controllers
 {
@@ -90,51 +92,6 @@ namespace rag_experiment.Controllers
             conversationBuilder.AppendLine();
 
             return conversationBuilder.ToString();
-        }
-
-        /// <summary>
-        /// Calculates the cosine similarity between two embedding vectors.
-        /// </summary>
-        /// <param name="a">First embedding vector</param>
-        /// <param name="b">Second embedding vector</param>
-        /// <returns>Cosine similarity score between 0 and 1, or 0 if vectors are different lengths</returns>
-        private float CalculateCosineSimilarity(float[] a, float[] b)
-        {
-            if (a.Length != b.Length)
-                return 0; // Return minimum similarity score instead of throwing exception
-
-            float dotProduct = 0;
-            float normA = 0;
-            float normB = 0;
-
-            for (int i = 0; i < a.Length; i++)
-            {
-                dotProduct += a[i] * b[i];
-                normA += a[i] * a[i];
-                normB += b[i] * b[i];
-            }
-
-            // Handle zero vectors
-            if (normA == 0 || normB == 0)
-                return 0;
-
-            return dotProduct / (float)(Math.Sqrt(normA) * Math.Sqrt(normB));
-        }
-
-        /// <summary>
-        /// Converts a byte array blob back to a float array.
-        /// </summary>
-        /// <param name="blob">The byte array blob</param>
-        /// <returns>The float array</returns>
-        private float[] ConvertFromBlob(byte[] blob)
-        {
-            // Convert the byte array back to a float array
-            float[] embeddingData = new float[blob.Length / sizeof(float)];
-
-            // Copy the byte array to the float array
-            Buffer.BlockCopy(blob, 0, embeddingData, 0, blob.Length);
-
-            return embeddingData;
         }
 
         /// <summary>
@@ -248,26 +205,26 @@ namespace rag_experiment.Controllers
                         if (request.ReferencedDocumentIds != null && request.ReferencedDocumentIds.Any())
                         {
                             var referencedDocIds = request.ReferencedDocumentIds.Select(id => id.ToString()).ToList();
+                            var queryVector = new Vector(queryEmbedding);
 
                             // Get all embeddings for the referenced documents from SystemKnowledgeBase
-                            var referencedEmbeddingEntities = await _dbContext.Embeddings
+                            // Use pgvector's native cosine distance for similarity calculation
+                            var referencedEmbeddingResults = await _dbContext.Embeddings
                                 .Where(e => referencedDocIds.Contains(e.DocumentId) &&
                                            e.Owner == EmbeddingOwner.SystemKnowledgeBase)
+                                .Select(e => new
+                                {
+                                    e.Text,
+                                    e.DocumentId,
+                                    e.DocumentTitle,
+                                    Distance = e.EmbeddingData.CosineDistance(queryVector)
+                                })
                                 .ToListAsync();
 
-                            // Calculate similarity for each referenced embedding
-                            foreach (var embedding in referencedEmbeddingEntities)
-                            {
-                                var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
-                                var similarity = CalculateCosineSimilarity(queryEmbedding, embeddingVector);
-
-                                referencedEmbeddings.Add((
-                                    embedding.Text,
-                                    embedding.DocumentId,
-                                    embedding.DocumentTitle,
-                                    similarity
-                                ));
-                            }
+                            // Convert cosine distance to similarity (similarity = 1 - distance)
+                            referencedEmbeddings = referencedEmbeddingResults
+                                .Select(e => (e.Text, e.DocumentId, e.DocumentTitle, Similarity: 1f - (float)e.Distance))
+                                .ToList();
 
                             _logger.LogInformation("Retrieved {Count} embeddings from {DocCount} referenced documents",
                                 referencedEmbeddings.Count, request.ReferencedDocumentIds.Count);

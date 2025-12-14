@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
+using Pgvector;
+using Pgvector.EntityFrameworkCore;
 
 namespace rag_experiment.Services.Ingestion.VectorStorage
 {
@@ -26,7 +28,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
             var embedding = new Embedding
             {
                 Text = text,
-                EmbeddingData = ConvertToBlob(embeddingData),
+                EmbeddingData = new Vector(embeddingData),
                 DocumentId = documentId,
                 DocumentTitle = documentTitle,
                 Owner = owner,
@@ -52,7 +54,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
             if (embedding == null)
                 return default;
 
-            return (embedding.Id, embedding.Text, ConvertFromBlob(embedding.EmbeddingData), embedding.DocumentId,
+            return (embedding.Id, embedding.Text, embedding.EmbeddingData.ToArray(), embedding.DocumentId,
                 embedding.DocumentTitle);
         }
 
@@ -67,7 +69,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
             if (embedding != null)
             {
                 embedding.Text = newText;
-                embedding.EmbeddingData = ConvertToBlob(newEmbeddingData);
+                embedding.EmbeddingData = new Vector(newEmbeddingData);
 
                 if (documentId != null)
                 {
@@ -119,6 +121,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
 
         /// <summary>
         /// Finds the most similar embeddings in the database to the query embedding, scoped to a conversation.
+        /// Uses pgvector's native cosine distance for efficient similarity search.
         /// </summary>
         /// <param name="queryEmbedding">The query embedding vector</param>
         /// <param name="conversationId">The conversation ID to scope the search to</param>
@@ -128,33 +131,34 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
             FindSimilarEmbeddingsFromUsersDocuments(float[] queryEmbedding, int? conversationId, int topK = 10)
         {
             var userId = _userContext.GetCurrentUserId();
-            var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
+            var queryVector = new Vector(queryEmbedding);
 
-            // Load all UserDocument embeddings from the database for the current user and conversation (if specified)
-            var embeddings = _context.Embeddings
+            // Use pgvector's native cosine distance operator for efficient similarity search
+            // Cosine distance = 1 - cosine similarity, so we convert back to similarity
+            var results = _context.Embeddings
                 .Where(e => e.UserId == userId &&
                             (conversationId == null || e.ConversationId == conversationId) &&
                             e.Owner == EmbeddingOwner.UserDocument)
+                .OrderBy(e => e.EmbeddingData.CosineDistance(queryVector))
+                .Take(topK)
+                .Select(e => new
+                {
+                    e.Text,
+                    e.DocumentId,
+                    e.DocumentTitle,
+                    Distance = e.EmbeddingData.CosineDistance(queryVector)
+                })
                 .ToList();
 
-            // Calculate similarity for each embedding
-            foreach (var embedding in embeddings)
-            {
-                var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
-                var similarity = CosineSimilarity(queryEmbedding, embeddingVector);
-
-                results.Add((embedding.Text, embedding.DocumentId, embedding.DocumentTitle, similarity));
-            }
-
-            // Return top K results, ordered by similarity (highest first)
+            // Convert cosine distance to similarity (similarity = 1 - distance)
             return results
-                .OrderByDescending(r => r.Similarity)
-                .Take(topK)
+                .Select(r => (r.Text, r.DocumentId, r.DocumentTitle, Similarity: 1f - (float)r.Distance))
                 .ToList();
         }
 
         /// <summary>
         /// Finds the most similar embeddings in the database to the query embedding across all user's conversations.
+        /// Uses pgvector's native cosine distance for efficient similarity search.
         /// </summary>
         /// <param name="queryEmbedding">The query embedding vector</param>
         /// <param name="topK">Number of results to return</param>
@@ -163,32 +167,32 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
             FindSimilarEmbeddingsAllConversations(float[] queryEmbedding, int topK = 10)
         {
             var userId = _userContext.GetCurrentUserId();
-            var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
+            var queryVector = new Vector(queryEmbedding);
 
-            // Load all UserDocument embeddings from the database for the current user across all conversations
-            var embeddings = _context.Embeddings
+            // Use pgvector's native cosine distance operator for efficient similarity search
+            var results = _context.Embeddings
                 .Where(e => e.UserId == userId && e.Owner == EmbeddingOwner.UserDocument)
+                .OrderBy(e => e.EmbeddingData.CosineDistance(queryVector))
+                .Take(topK)
+                .Select(e => new
+                {
+                    e.Text,
+                    e.DocumentId,
+                    e.DocumentTitle,
+                    Distance = e.EmbeddingData.CosineDistance(queryVector)
+                })
                 .ToList();
 
-            // Calculate similarity for each embedding
-            foreach (var embedding in embeddings)
-            {
-                var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
-                var similarity = CosineSimilarity(queryEmbedding, embeddingVector);
-
-                results.Add((embedding.Text, embedding.DocumentId, embedding.DocumentTitle, similarity));
-            }
-
-            // Return top K results, ordered by similarity (highest first)
+            // Convert cosine distance to similarity (similarity = 1 - distance)
             return results
-                .OrderByDescending(r => r.Similarity)
-                .Take(topK)
+                .Select(r => (r.Text, r.DocumentId, r.DocumentTitle, Similarity: 1f - (float)r.Distance))
                 .ToList();
         }
 
         /// <summary>
         /// Finds the most similar embeddings in the database to the query embedding across ALL embeddings in the entire system.
         /// This searches through all users' documents and conversations without any filtering.
+        /// Uses pgvector's native cosine distance for efficient similarity search.
         /// </summary>
         /// <param name="queryEmbedding">The query embedding vector</param>
         /// <param name="topK">Number of results to return</param>
@@ -196,26 +200,25 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         public async Task<List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>>
             FindSimilarEmbeddingsAsync(float[] queryEmbedding, int topK = 10)
         {
-            var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
+            var queryVector = new Vector(queryEmbedding);
 
-            // Load ALL SystemKnowledgeBase embeddings from the database (excluding user documents)
-            var embeddings = await _context.Embeddings
+            // Use pgvector's native cosine distance operator for efficient similarity search
+            var results = await _context.Embeddings
                 .Where(e => e.Owner == EmbeddingOwner.SystemKnowledgeBase)
+                .OrderBy(e => e.EmbeddingData.CosineDistance(queryVector))
+                .Take(topK)
+                .Select(e => new
+                {
+                    e.Text,
+                    e.DocumentId,
+                    e.DocumentTitle,
+                    Distance = e.EmbeddingData.CosineDistance(queryVector)
+                })
                 .ToListAsync();
 
-            // Calculate similarity for each embedding
-            foreach (var embedding in embeddings)
-            {
-                var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
-                var similarity = CosineSimilarity(queryEmbedding, embeddingVector);
-
-                results.Add((embedding.Text, embedding.DocumentId, embedding.DocumentTitle, similarity));
-            }
-
-            // Return top K results, ordered by similarity (highest first)
+            // Convert cosine distance to similarity (similarity = 1 - distance)
             return results
-                .OrderByDescending(r => r.Similarity)
-                .Take(topK)
+                .Select(r => (r.Text, r.DocumentId, r.DocumentTitle, Similarity: 1f - (float)r.Distance))
                 .ToList();
         }
 
@@ -223,6 +226,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
         /// Adaptive retrieval method that finds similar embeddings using both a similarity threshold and maxK limit.
         /// Returns all results above the threshold, up to maxK results.
         /// This enables flexible retrieval strategies based on query intent.
+        /// Uses pgvector's native cosine distance for efficient similarity search.
         /// When maxK is int.MaxValue, returns all matching results (no limit).
         /// </summary>
         /// <param name="queryEmbedding">The query embedding vector</param>
@@ -235,41 +239,42 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
                 int maxK = 10,
                 float minSimilarity = 0.70f)
         {
-            var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
+            var queryVector = new Vector(queryEmbedding);
 
-            // Load ALL SystemKnowledgeBase embeddings from the database
-            var embeddings = await _context.Embeddings
+            // Convert similarity threshold to distance threshold (distance = 1 - similarity)
+            var maxDistance = 1.0 - minSimilarity;
+
+            // Build the query with pgvector's native cosine distance
+            var query = _context.Embeddings
                 .Where(e => e.Owner == EmbeddingOwner.SystemKnowledgeBase)
+                .Where(e => e.EmbeddingData.CosineDistance(queryVector) <= maxDistance)
+                .OrderBy(e => e.EmbeddingData.CosineDistance(queryVector));
+
+            // Apply limit if not unlimited
+            var limitedQuery = maxK == int.MaxValue
+                ? query
+                : query.Take(maxK);
+
+            var results = await limitedQuery
+                .Select(e => new
+                {
+                    e.Text,
+                    e.DocumentId,
+                    e.DocumentTitle,
+                    Distance = e.EmbeddingData.CosineDistance(queryVector)
+                })
                 .ToListAsync();
 
-            // Calculate similarity for each embedding and filter by threshold
-            foreach (var embedding in embeddings)
-            {
-                var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
-                var similarity = CosineSimilarity(queryEmbedding, embeddingVector);
-
-                // Only include results above the similarity threshold
-                if (similarity >= minSimilarity)
-                {
-                    results.Add((embedding.Text, embedding.DocumentId, embedding.DocumentTitle, similarity));
-                }
-            }
-
-            // Order by similarity (highest first)
-            var orderedResults = results.OrderByDescending(r => r.Similarity);
-
-            // Return up to maxK results that meet the threshold, or all results if maxK is unlimited
-            if (maxK == int.MaxValue)
-            {
-                return orderedResults.ToList();
-            }
-
-            return orderedResults.Take(maxK).ToList();
+            // Convert cosine distance to similarity (similarity = 1 - distance)
+            return results
+                .Select(r => (r.Text, r.DocumentId, r.DocumentTitle, Similarity: 1f - (float)r.Distance))
+                .ToList();
         }
 
         /// <summary>
         /// Adaptive retrieval for user's documents scoped to a conversation.
         /// Uses both similarity threshold and maxK limit for flexible retrieval.
+        /// Uses pgvector's native cosine distance for efficient similarity search.
         /// </summary>
         /// <param name="queryEmbedding">The query embedding vector</param>
         /// <param name="conversationId">The conversation ID to scope the search to</param>
@@ -284,85 +289,32 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
                 float minSimilarity = 0.70f)
         {
             var userId = _userContext.GetCurrentUserId();
-            var results = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>();
+            var queryVector = new Vector(queryEmbedding);
 
-            // Load all UserDocument embeddings from the database for the current user and conversation
-            var embeddings = _context.Embeddings
+            // Convert similarity threshold to distance threshold (distance = 1 - similarity)
+            var maxDistance = 1.0 - minSimilarity;
+
+            // Use pgvector's native cosine distance operator for efficient similarity search
+            var results = _context.Embeddings
                 .Where(e => e.UserId == userId &&
                             (conversationId == null || e.ConversationId == conversationId) &&
                             e.Owner == EmbeddingOwner.UserDocument)
-                .ToList();
-
-            // Calculate similarity for each embedding and filter by threshold
-            foreach (var embedding in embeddings)
-            {
-                var embeddingVector = ConvertFromBlob(embedding.EmbeddingData);
-                var similarity = CosineSimilarity(queryEmbedding, embeddingVector);
-
-                // Only include results above the similarity threshold
-                if (similarity >= minSimilarity)
-                {
-                    results.Add((embedding.Text, embedding.DocumentId, embedding.DocumentTitle, similarity));
-                }
-            }
-
-            // Return up to maxK results that meet the threshold, ordered by similarity (highest first)
-            return results
-                .OrderByDescending(r => r.Similarity)
+                .Where(e => e.EmbeddingData.CosineDistance(queryVector) <= maxDistance)
+                .OrderBy(e => e.EmbeddingData.CosineDistance(queryVector))
                 .Take(maxK)
+                .Select(e => new
+                {
+                    e.Text,
+                    e.DocumentId,
+                    e.DocumentTitle,
+                    Distance = e.EmbeddingData.CosineDistance(queryVector)
+                })
                 .ToList();
-        }
 
-        /// <summary>
-        /// Calculates the cosine similarity between two embedding vectors.
-        /// </summary>
-        /// <param name="a">First embedding vector</param>
-        /// <param name="b">Second embedding vector</param>
-        /// <returns>Cosine similarity score between 0 and 1, or 0 if vectors are different lengths</returns>
-        private float CosineSimilarity(float[] a, float[] b)
-        {
-            if (a.Length != b.Length)
-                return 0; // Return minimum similarity score instead of throwing exception
-
-            float dotProduct = 0;
-            float normA = 0;
-            float normB = 0;
-
-            for (int i = 0; i < a.Length; i++)
-            {
-                dotProduct += a[i] * b[i];
-                normA += a[i] * a[i];
-                normB += b[i] * b[i];
-            }
-
-            // Handle zero vectors
-            if (normA == 0 || normB == 0)
-                return 0;
-
-            return dotProduct / (float)(Math.Sqrt(normA) * Math.Sqrt(normB));
-        }
-
-        private byte[] ConvertToBlob(float[] embeddingData)
-        {
-            // Convert the float array to a byte array
-            // Each float is 4 bytes
-            byte[] blob = new byte[embeddingData.Length * sizeof(float)];
-
-            // Copy the float array to the byte array
-            Buffer.BlockCopy(embeddingData, 0, blob, 0, blob.Length);
-
-            return blob;
-        }
-
-        private float[] ConvertFromBlob(byte[] blob)
-        {
-            // Convert the byte array back to a float array
-            float[] embeddingData = new float[blob.Length / sizeof(float)];
-
-            // Copy the byte array to the float array
-            Buffer.BlockCopy(blob, 0, embeddingData, 0, blob.Length);
-
-            return embeddingData;
+            // Convert cosine distance to similarity (similarity = 1 - distance)
+            return results
+                .Select(r => (r.Text, r.DocumentId, r.DocumentTitle, Similarity: 1f - (float)r.Distance))
+                .ToList();
         }
 
         public async Task UpsertEmbeddingsAsync(IEnumerable<EmbeddingUpsertItem> items,
@@ -399,7 +351,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
                         toInsert.Add(new Embedding
                         {
                             Text = item.Text,
-                            EmbeddingData = ConvertToBlob(item.Vector),
+                            EmbeddingData = new Vector(item.Vector),
                             DocumentId = item.DocumentId,
                             DocumentTitle = item.DocumentTitle ?? string.Empty,
                             Owner = item.Owner,
@@ -418,7 +370,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
                             var entity =
                                 await _context.Embeddings.FirstAsync(e => e.Id == existingRow.Id, cancellationToken);
                             entity.Text = item.Text;
-                            entity.EmbeddingData = ConvertToBlob(item.Vector);
+                            entity.EmbeddingData = new Vector(item.Vector);
                             entity.DocumentTitle = item.DocumentTitle ?? entity.DocumentTitle;
                             entity.Owner = item.Owner;
                             entity.ChunkHash = item.ChunkHash;
@@ -475,7 +427,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
                         toInsert.Add(new Embedding
                         {
                             Text = item.Text,
-                            EmbeddingData = ConvertToBlob(item.Vector),
+                            EmbeddingData = new Vector(item.Vector),
                             DocumentId = item.DocumentId,
                             DocumentTitle = item.DocumentTitle ?? string.Empty,
                             Owner = item.Owner,
@@ -494,7 +446,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
                             var entity =
                                 await _context.Embeddings.FirstAsync(e => e.Id == existingRow.Id, cancellationToken);
                             entity.Text = item.Text;
-                            entity.EmbeddingData = ConvertToBlob(item.Vector);
+                            entity.EmbeddingData = new Vector(item.Vector);
                             entity.DocumentTitle = item.DocumentTitle ?? entity.DocumentTitle;
                             entity.Owner = item.Owner;
                             entity.ChunkHash = item.ChunkHash;

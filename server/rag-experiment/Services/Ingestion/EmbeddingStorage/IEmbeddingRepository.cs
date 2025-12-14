@@ -1,3 +1,4 @@
+using Pgvector;
 using rag_experiment.Domain;
 
 namespace rag_experiment.Services.Ingestion.VectorStorage
