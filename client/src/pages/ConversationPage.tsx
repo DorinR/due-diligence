@@ -1,13 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
-import { toast } from 'sonner';
-import { useGetConversationById } from '../api/conversation/getConversationById';
-import { MessageRole } from '../api/message/types';
-import { useSendMessage } from '../api/message/sendMessage';
-import { ChatInterface, Message } from '../components/ChatInterface';
-import { ConversationMessage } from '../api/message/types';
-import { useSetConversationCompany } from '../api/conversation/setConversationCompany';
-import { Button } from '../components/ui/button/Button';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Navigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
+import { useGetConversationById } from "../api/conversation/getConversationById";
+import { useSetConversationCompany } from "../api/conversation/setConversationCompany";
+import { useSendMessage } from "../api/message/sendMessage";
+import { ConversationMessage, MessageRole } from "../api/message/types";
+import { ChatInterface, Message } from "../components/ChatInterface";
+import { Button } from "../components/ui/button/Button";
 
 // Helper function to generate a unique ID
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -31,24 +30,27 @@ export function ConversationPage() {
 
     // Hooks for mutations
     const { mutate: sendMessage } = useSendMessage();
-    const {
-        mutate: setConversationCompany,
-        isPending: isSettingCompany,
-    } = useSetConversationCompany();
+    const { mutate: setConversationCompany, isPending: isSettingCompany } =
+        useSetConversationCompany();
 
-    const [selectedCompany, setSelectedCompany] = useState('');
+    const [selectedCompany, setSelectedCompany] = useState("");
+
+    type CompanyOption = {
+        label: string;
+        ticker: string;
+    };
 
     // Convert conversation messages to chat interface format
     const convertMessagesToChat = useCallback(
         (conversationMessages: ConversationMessage[]): Message[] => {
             if (!conversationMessages) return [];
-            return conversationMessages.map(msg => ({
+            return conversationMessages.map((msg) => ({
                 id: msg.id,
                 text: msg.text,
                 sender: msg.role,
                 timestamp: new Date(msg.timestamp).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
+                    hour: "2-digit",
+                    minute: "2-digit",
                 }),
                 sources: msg.sources || undefined, // Convert null to undefined for optional property
             }));
@@ -76,14 +78,14 @@ export function ConversationPage() {
             const newUserMessage: Message = {
                 id: generateId(),
                 text,
-                sender: 'User',
+                sender: "User",
                 timestamp: new Date().toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
+                    hour: "2-digit",
+                    minute: "2-digit",
                 }),
             };
 
-            setMessages(prev => [...prev, newUserMessage]);
+            setMessages((prev) => [...prev, newUserMessage]);
             setIsLoading(true);
 
             // Send message to backend (backend handles LLM query and saving assistant response)
@@ -100,15 +102,19 @@ export function ConversationPage() {
                                 setIsLoading(false);
                             })
                             .catch(() => {
-                                toast.error('Failed to load updated messages');
+                                toast.error("Failed to load updated messages");
                                 setIsLoading(false);
                             });
                     },
                     onError: () => {
-                        toast.error('Failed to send your message. Please try again.');
+                        toast.error(
+                            "Failed to send your message. Please try again."
+                        );
                         setIsLoading(false);
                         // Remove optimistic update on error
-                        setMessages(prev => prev.filter(msg => msg.id !== newUserMessage.id));
+                        setMessages((prev) =>
+                            prev.filter((msg) => msg.id !== newUserMessage.id)
+                        );
                     },
                 }
             );
@@ -121,8 +127,14 @@ export function ConversationPage() {
         [conversation?.companies?.length]
     );
 
-    const companyOptions = useMemo(
-        () => ['Apple', 'Microsoft', 'Amazon', 'Alphabet', 'Berkshire Hathaway'],
+    const companyOptions: CompanyOption[] = useMemo(
+        () => [
+            { label: "Apple", ticker: "AAPL" },
+            { label: "Microsoft", ticker: "MSFT" },
+            { label: "Amazon", ticker: "AMZN" },
+            { label: "Alphabet", ticker: "GOOG" },
+            { label: "Berkshire Hathaway", ticker: "BRK.B" },
+        ],
         []
     );
 
@@ -133,12 +145,12 @@ export function ConversationPage() {
             { conversationId, companyName: selectedCompany },
             {
                 onSuccess: () => {
-                    toast.success('Company set for research.');
-                    setSelectedCompany('');
+                    toast.success("Company set for research.");
+                    setSelectedCompany("");
                     refetchConversation();
                 },
                 onError: () => {
-                    toast.error('Failed to set company. Please try again.');
+                    toast.error("Failed to set company. Please try again.");
                 },
             }
         );
@@ -147,18 +159,20 @@ export function ConversationPage() {
     const renderCompanySelector = (
         <div className="flex h-full items-center justify-center">
             <div className="flex flex-col items-center gap-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                <div className="text-lg font-semibold text-gray-900">Choose a company</div>
+                <div className="text-lg font-semibold text-gray-900">
+                    Choose a company
+                </div>
                 <select
                     className="w-64 rounded border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={selectedCompany}
-                    onChange={e => setSelectedCompany(e.target.value)}
+                    onChange={(e) => setSelectedCompany(e.target.value)}
                 >
                     <option value="" disabled>
                         Choose a company
                     </option>
-                    {companyOptions.map(option => (
-                        <option key={option} value={option}>
-                            {option}
+                    {companyOptions.map((option) => (
+                        <option key={option.ticker} value={option.ticker}>
+                            {option.label}
                         </option>
                     ))}
                 </select>
@@ -168,7 +182,7 @@ export function ConversationPage() {
                         onClick={handleResearch}
                         disabled={isSettingCompany}
                     >
-                        {isSettingCompany ? 'Loading...' : 'Research'}
+                        {isSettingCompany ? "Loading..." : "Research"}
                     </Button>
                 )}
             </div>
@@ -197,7 +211,9 @@ export function ConversationPage() {
         return (
             <div className="flex h-full items-center justify-center">
                 <div className="text-center">
-                    <p className="mb-4 text-red-600">Failed to load conversation</p>
+                    <p className="mb-4 text-red-600">
+                        Failed to load conversation
+                    </p>
                     <Navigate to="/" replace />
                 </div>
             </div>
@@ -219,7 +235,9 @@ export function ConversationPage() {
                     isLoading={isLoading}
                     conversationType={conversation?.type}
                     showInput={hasCompanies}
-                    emptyStateContent={!hasCompanies ? renderCompanySelector : undefined}
+                    emptyStateContent={
+                        !hasCompanies ? renderCompanySelector : undefined
+                    }
                 />
             </div>
         </div>

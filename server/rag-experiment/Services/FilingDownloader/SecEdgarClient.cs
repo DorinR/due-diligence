@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Microsoft.Extensions.Options;
+using rag_experiment.Services.BackgroundJobs.Models;
 using rag_experiment.Services.FilingDownloader.Models;
 
 namespace rag_experiment.Services.FilingDownloader;
@@ -12,6 +14,7 @@ public class SecEdgarClient : IFilingDownloader
     private readonly HttpClient _httpClient;
     private readonly SemaphoreSlim _rateLimiter = new(1, 1);
     private DateTime _lastRequestTime = DateTime.MinValue;
+    private readonly int _maxFilingsToDownload;
 
     // SEC EDGAR requires 100ms minimum between requests (10 req/sec)
     private static readonly TimeSpan MinRequestInterval = TimeSpan.FromMilliseconds(100);
@@ -20,12 +23,13 @@ public class SecEdgarClient : IFilingDownloader
     private const string EdgarBaseUrl = "https://www.sec.gov";
     private const string EdgarDataUrl = "https://data.sec.gov";
 
-    public SecEdgarClient(HttpClient httpClient)
+    public SecEdgarClient(HttpClient httpClient, IOptions<FilingIngestionOptions> filingOptions)
     {
         _httpClient = httpClient;
+        _maxFilingsToDownload = filingOptions.Value.MaxFilingsToDownload;
 
         // SEC EDGAR requires a User-Agent header with contact info
-        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DueDiligence/1.0 (contact@example.com)");
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DueDiligence/1.0 (dorin.rogov@gmail.com)");
     }
 
     /// <inheritdoc />
@@ -44,7 +48,7 @@ public class SecEdgarClient : IFilingDownloader
         }
 
         // Get the company's filing history
-        var filings = await GetCompanyFilingsAsync(cik, filingTypes, ct);
+        var filings = await GetCompanyFilingsAsync(cik, filingTypes, _maxFilingsToDownload, ct);
 
         // Download each filing
         foreach (var filing in filings)
@@ -69,44 +73,13 @@ public class SecEdgarClient : IFilingDownloader
     }
 
     /// <summary>
-    /// Resolves a company ticker or name to its SEC CIK number.
+    /// Resolves a company ticker to its SEC CIK number.
     /// </summary>
     private async Task<string?> GetCikAsync(string companyIdentifier, CancellationToken ct)
     {
-        // If it's already a CIK (numeric), pad it to 10 digits and return
-        if (long.TryParse(companyIdentifier, out var cikNumber))
-        {
-            return cikNumber.ToString("D10");
-        }
-
-        // Otherwise, look up the ticker in SEC's company tickers JSON
         await EnforceRateLimitAsync(ct);
-
-        var tickerLookupUrl = $"{EdgarDataUrl}/submissions/CIK{companyIdentifier.ToUpperInvariant()}.json";
-
-        try
-        {
-            // Try direct CIK lookup first (some tickers work as CIK prefixes)
-            var response = await _httpClient.GetAsync(tickerLookupUrl, ct);
-            if (response.IsSuccessStatusCode)
-            {
-                var json = await response.Content.ReadAsStringAsync(ct);
-                using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("cik", out var cikElement))
-                {
-                    var cik = cikElement.GetString();
-                    return cik?.PadLeft(10, '0');
-                }
-            }
-        }
-        catch (HttpRequestException)
-        {
-            // Fall through to ticker lookup
-        }
-
-        // Fallback: Use the company tickers endpoint
-        await EnforceRateLimitAsync(ct);
-        var tickersUrl = $"{EdgarDataUrl}/company_tickers.json";
+        // SEC hosts the ticker -> CIK map under sec.gov/files (not data.sec.gov)
+        var tickersUrl = $"{EdgarBaseUrl}/files/company_tickers.json";
 
         try
         {
@@ -143,6 +116,7 @@ public class SecEdgarClient : IFilingDownloader
     private async Task<List<FilingInfo>> GetCompanyFilingsAsync(
         string cik,
         List<string> filingTypes,
+        int maxFilings,
         CancellationToken ct)
     {
         var filings = new List<FilingInfo>();
@@ -188,6 +162,11 @@ public class SecEdgarClient : IFilingDownloader
                             FilingDate = filingDate,
                             PrimaryDocument = primaryDoc
                         });
+
+                        if (maxFilings > 0 && filings.Count >= maxFilings)
+                        {
+                            break;
+                        }
                     }
                 }
             }
@@ -212,7 +191,8 @@ public class SecEdgarClient : IFilingDownloader
 
         // Format accession number for URL (remove dashes)
         var accessionForUrl = filing.AccessionNumber.Replace("-", "");
-        var documentUrl = $"{EdgarBaseUrl}/Archives/edgar/data/{cik.TrimStart('0')}/{accessionForUrl}/{filing.PrimaryDocument}";
+        var documentUrl =
+            $"{EdgarBaseUrl}/Archives/edgar/data/{cik.TrimStart('0')}/{accessionForUrl}/{filing.PrimaryDocument}";
 
         var response = await _httpClient.GetAsync(documentUrl, ct);
 
@@ -249,6 +229,7 @@ public class SecEdgarClient : IFilingDownloader
                 var delay = MinRequestInterval - timeSinceLastRequest;
                 await Task.Delay(delay, ct);
             }
+
             _lastRequestTime = DateTime.UtcNow;
         }
         finally

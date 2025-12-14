@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Hangfire;
+using Microsoft.AspNetCore.Hosting;
 using rag_experiment.Domain;
 using rag_experiment.Services.BackgroundJobs.Models;
 using rag_experiment.Services.FilingDownloader;
@@ -22,8 +23,7 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
     private readonly ITextChunker _textChunker;
     private readonly IEmbeddingGenerationService _embeddingService;
     private readonly IEmbeddingRepository _embeddingRepository;
-
-    private const string BaseDirectory = "/data/ingestion-jobs";
+    private readonly string _baseDirectory;
 
     public DocumentProcessingJobService(
         IFilingDownloader filingDownloader,
@@ -31,7 +31,8 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
         ITextExtractor textExtractor,
         ITextChunker textChunker,
         IEmbeddingGenerationService embeddingService,
-        IEmbeddingRepository embeddingRepository)
+        IEmbeddingRepository embeddingRepository,
+        IWebHostEnvironment env)
     {
         _filingDownloader = filingDownloader;
         _filingPersistor = filingPersistor;
@@ -39,6 +40,7 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
         _textChunker = textChunker;
         _embeddingService = embeddingService;
         _embeddingRepository = embeddingRepository;
+        _baseDirectory = Path.Combine(env.ContentRootPath, "Temp", "ingestion-jobs");
     }
 
     /// <summary>
@@ -369,9 +371,9 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
 
     #region Helper Methods
 
-    private static string GetDirectory(string conversationId, string subFolder)
+    private string GetDirectory(string conversationId, string subFolder)
     {
-        return Path.Combine(BaseDirectory, conversationId, subFolder);
+        return Path.Combine(_baseDirectory, conversationId, subFolder);
     }
 
     private static void EnsureDirectoryExists(string path)
@@ -388,7 +390,8 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
         try
         {
             await File.WriteAllTextAsync(tempPath, content);
-            File.Move(tempPath, targetPath);
+            // Overwrite existing file to avoid collisions on repeated saves
+            File.Move(tempPath, targetPath, overwrite: true);
         }
         catch
         {

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Hosting;
 using rag_experiment.Services.FilingDownloader.Models;
 
 namespace rag_experiment.Services.FilingDownloader;
@@ -11,9 +12,14 @@ public class LocalFilingPersistor : IFilingPersistor
 {
     /// <summary>
     /// Base directory for storing ingestion job artifacts.
-    /// Files are stored at: {BaseDirectory}/{conversationId}/raw/{filename}
+    /// Files are stored at: {_baseDirectory}/{conversationId}/raw/{filename}
     /// </summary>
-    private const string BaseDirectory = "/data/ingestion-jobs";
+    private readonly string _baseDirectory;
+
+    public LocalFilingPersistor(IWebHostEnvironment env)
+    {
+        _baseDirectory = Path.Combine(env.ContentRootPath, "Temp", "ingestion-jobs");
+    }
 
     /// <inheritdoc />
     public async Task PersistFilingsAsync(
@@ -79,9 +85,9 @@ public class LocalFilingPersistor : IFilingPersistor
     /// <summary>
     /// Gets the raw documents directory path for a conversation.
     /// </summary>
-    private static string GetRawDirectory(string conversationId)
+    private string GetRawDirectory(string conversationId)
     {
-        return Path.Combine(BaseDirectory, conversationId, "raw");
+        return Path.Combine(_baseDirectory, conversationId, "raw");
     }
 
     /// <summary>
