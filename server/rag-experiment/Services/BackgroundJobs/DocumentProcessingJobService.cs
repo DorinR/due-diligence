@@ -223,8 +223,11 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
                 for (int i = 0; i < chunks.Count; i++)
                 {
                     var chunkText = chunks[i];
-                    var startOffset = text.IndexOf(chunkText, currentOffset, StringComparison.Ordinal);
-                    if (startOffset < 0) startOffset = currentOffset;
+
+                    // Avoid ArgumentOutOfRange when currentOffset drifts past text length
+                    var safeStart = Math.Min(currentOffset, text.Length);
+                    var startOffset = text.IndexOf(chunkText, safeStart, StringComparison.Ordinal);
+                    if (startOffset < 0) startOffset = safeStart;
 
                     allChunks.Add(new DocumentChunk
                     {
