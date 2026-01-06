@@ -66,6 +66,7 @@ public class ConversationController : ControllerBase
                 id = conversation.Id,
                 title = conversation.Title,
                 companies = conversation.Companies.Select(c => new { c.Id, c.CompanyName }),
+                ingestionStatus = conversation.IngestionStatus,
                 createdAt = conversation.CreatedAt,
                 updatedAt = conversation.UpdatedAt
             });
@@ -101,6 +102,7 @@ public class ConversationController : ControllerBase
 
             conversation.Companies.Clear();
             conversation.Companies.Add(new ConversationCompany { CompanyName = request.CompanyName });
+            conversation.IngestionStatus = BatchProcessingStatus.Pending;
             conversation.UpdatedAt = DateTime.UtcNow;
 
             await _dbContext.SaveChangesAsync();
@@ -120,6 +122,7 @@ public class ConversationController : ControllerBase
                 conversation.Id,
                 conversation.Title,
                 Companies = conversation.Companies.Select(c => new { c.Id, c.CompanyName }),
+                conversation.IngestionStatus,
                 conversation.CreatedAt,
                 conversation.UpdatedAt
             });
@@ -145,6 +148,7 @@ public class ConversationController : ControllerBase
                     c.Id,
                     c.Title,
                     Companies = c.Companies.Select(cc => new { cc.Id, cc.CompanyName }),
+                    c.IngestionStatus,
                     c.CreatedAt,
                     c.UpdatedAt,
                     DocumentCount = c.Documents.Count,
@@ -183,6 +187,7 @@ public class ConversationController : ControllerBase
                 conversation.Id,
                 conversation.Title,
                 Companies = conversation.Companies.Select(c => new { c.Id, c.CompanyName }),
+                conversation.IngestionStatus,
                 conversation.CreatedAt,
                 conversation.UpdatedAt,
                 Documents = conversation.Documents.Select(d => new
@@ -280,6 +285,46 @@ public class ConversationController : ControllerBase
             return StatusCode(500, $"An error occurred while deleting the conversation: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// Updates the ingestion status for a conversation.
+    /// This endpoint is intended to be called by the background job service when ingestion completes or fails.
+    /// </summary>
+    /// <param name="id">The conversation ID</param>
+    /// <param name="request">The new ingestion status</param>
+    /// <returns>The updated conversation with the new ingestion status</returns>
+    [HttpPatch("{id}/ingestion-status")]
+    [AllowAnonymous] // Allow background jobs to call this endpoint without user auth
+    public async Task<IActionResult> UpdateIngestionStatus(int id, [FromBody] UpdateIngestionStatusRequest request)
+    {
+        try
+        {
+            if (request == null)
+                return BadRequest("Request body is required");
+
+            var conversation = await _dbContext.Conversations
+                .FirstOrDefaultAsync(c => c.Id == id);
+
+            if (conversation == null)
+                return NotFound("Conversation not found");
+
+            conversation.IngestionStatus = request.Status;
+            conversation.UpdatedAt = DateTime.UtcNow;
+
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new
+            {
+                conversation.Id,
+                conversation.IngestionStatus,
+                conversation.UpdatedAt
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"An error occurred while updating the ingestion status: {ex.Message}");
+        }
+    }
 }
 
 /// <summary>
@@ -308,4 +353,15 @@ public class SetConversationCompanyRequest
     /// Company name to associate with the conversation.
     /// </summary>
     public string CompanyName { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Request to update the ingestion status of a conversation.
+/// </summary>
+public class UpdateIngestionStatusRequest
+{
+    /// <summary>
+    /// The new ingestion status for the conversation.
+    /// </summary>
+    public BatchProcessingStatus Status { get; set; }
 }

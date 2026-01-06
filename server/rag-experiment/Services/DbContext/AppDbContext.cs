@@ -54,6 +54,9 @@ namespace rag_experiment.Services
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.IngestionStatus)
+                    .HasConversion<string>()
+                    .HasMaxLength(50);
                 entity.HasOne(e => e.User)
                     .WithMany(u => u.Conversations)
                     .HasForeignKey(e => e.UserId)

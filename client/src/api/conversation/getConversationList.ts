@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { backendAccessPoint } from "../backendAccessPoint";
+import { IngestionStatus } from "./getConversationById";
 
 type ConversationFromServer = {
     id: string;
     title: string;
     createdAt: string;
     updatedAt: string;
+    ingestionStatus: IngestionStatus | null;
     companies: Array<{
         id: number;
         companyName: string;
@@ -22,6 +24,7 @@ export type Conversation = {
     title: string;
     createdAt: string;
     updatedAt: string;
+    ingestionStatus: IngestionStatus | null;
     companies: ConversationCompany[];
 };
 
@@ -32,6 +35,7 @@ export const getConversationList = async (): Promise<Conversation[]> => {
         title: conv.title,
         createdAt: conv.createdAt,
         updatedAt: conv.updatedAt,
+        ingestionStatus: conv.ingestionStatus,
         companies: conv.companies.map<ConversationCompany>((c) => ({
             id: c.id.toString(),
             companyName: c.companyName,

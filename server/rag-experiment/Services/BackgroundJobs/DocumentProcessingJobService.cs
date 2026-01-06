@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Hangfire;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
 using rag_experiment.Domain;
 using rag_experiment.Hubs.Models;
 using rag_experiment.Hubs.Services;
@@ -27,6 +28,7 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
     private readonly IEmbeddingGenerationService _embeddingService;
     private readonly IEmbeddingRepository _embeddingRepository;
     private readonly IDocumentProcessingNotifier _notifier;
+    private readonly AppDbContext _dbContext;
     private readonly string _baseDirectory;
 
     public DocumentProcessingJobService(
@@ -37,6 +39,7 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
         IEmbeddingGenerationService embeddingService,
         IEmbeddingRepository embeddingRepository,
         IDocumentProcessingNotifier notifier,
+        AppDbContext dbContext,
         IWebHostEnvironment env)
     {
         _filingDownloader = filingDownloader;
@@ -46,6 +49,7 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
         _embeddingService = embeddingService;
         _embeddingRepository = embeddingRepository;
         _notifier = notifier;
+        _dbContext = dbContext;
         _baseDirectory = Path.Combine(env.ContentRootPath, "Temp", "ingestion-jobs");
     }
 
@@ -525,6 +529,9 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
             state.CompletedAt = DateTime.UtcNow;
             await SaveBatchStateAsync(conversationId.ToString(), state);
 
+            // Persist ingestion status to database
+            await UpdateConversationIngestionStatusAsync(conversationId, BatchProcessingStatus.Completed);
+
             // Send final completion notification
             var duration = state.CompletedAt.Value - state.CreatedAt;
             await _notifier.SendCompletionAsync(conversationId.ToString(), new ProcessingCompleteResult
@@ -540,6 +547,9 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
             state.Status = BatchProcessingStatus.Failed;
             state.ErrorMessage = ex.Message;
             await SaveBatchStateAsync(conversationId.ToString(), state);
+
+            // Persist failed status to database
+            await UpdateConversationIngestionStatusAsync(conversationId, BatchProcessingStatus.Failed);
 
             // Send error notification
             await _notifier.SendErrorAsync(conversationId.ToString(), new ProcessingErrorResult
@@ -625,6 +635,24 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
         var statePath = Path.Combine(stateDir, "status.json");
         var json = JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true });
         await WriteFileAtomicallyAsync(statePath, json);
+    }
+
+    /// <summary>
+    /// Updates the ingestion status on the Conversation entity in the database.
+    /// </summary>
+    /// <param name="conversationId">The conversation to update.</param>
+    /// <param name="status">The new ingestion status.</param>
+    private async Task UpdateConversationIngestionStatusAsync(int conversationId, BatchProcessingStatus status)
+    {
+        var conversation = await _dbContext.Conversations
+            .FirstOrDefaultAsync(c => c.Id == conversationId);
+
+        if (conversation != null)
+        {
+            conversation.IngestionStatus = status;
+            conversation.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync();
+        }
     }
 
     #endregion

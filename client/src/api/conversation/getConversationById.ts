@@ -15,6 +15,20 @@ export type ConversationCompany = {
     companyName: string;
 };
 
+/**
+ * Represents the ingestion status of a conversation's documents.
+ * Matches the BatchProcessingStatus enum from the backend.
+ */
+export type IngestionStatus =
+    | "Pending"
+    | "Downloading"
+    | "Extracting"
+    | "Chunking"
+    | "GeneratingEmbeddings"
+    | "PersistingEmbeddings"
+    | "Completed"
+    | "Failed";
+
 export type ConversationDocument = {
     id: string;
     originalFileName: string;
@@ -39,6 +53,7 @@ export type ConversationWithDetails = {
     title: string;
     createdAt: string;
     updatedAt: string;
+    ingestionStatus: IngestionStatus | null;
     companies: ConversationCompany[];
     documents: ConversationDocument[];
     messages: ConversationMessage[];
@@ -49,6 +64,7 @@ type ConversationWithDetailsFromServer = {
     title: string;
     createdAt: string;
     updatedAt: string;
+    ingestionStatus: IngestionStatus | null;
     companies: Array<{
         id: number;
         companyName: string;
@@ -85,6 +101,7 @@ export const getConversationById = async (
         title: serverData.title,
         createdAt: serverData.createdAt,
         updatedAt: serverData.updatedAt,
+        ingestionStatus: serverData.ingestionStatus,
         companies: serverData.companies.map((c) => ({
             id: c.id.toString(),
             companyName: c.companyName,

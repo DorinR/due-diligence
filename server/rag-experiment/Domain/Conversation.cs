@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using rag_experiment.Services.BackgroundJobs.Models;
 
 namespace rag_experiment.Domain
 {
@@ -13,6 +14,12 @@ namespace rag_experiment.Domain
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
+        /// The current status of document ingestion for this conversation.
+        /// Null if no ingestion has been started.
+        /// </summary>
+        public BatchProcessingStatus? IngestionStatus { get; set; }
 
         // User association
         public int UserId { get; set; }

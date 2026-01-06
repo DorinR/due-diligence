@@ -202,7 +202,7 @@ export function ConversationPage() {
         ? null
         : processingComplete
           ? 100
-          : processingUpdate?.progressPercent ?? null;
+          : (processingUpdate?.progressPercent ?? null);
     const progressDetail = processingUpdate?.totalDocuments
         ? `${processingUpdate.documentsProcessed ?? 0} / ${
               processingUpdate.totalDocuments
@@ -213,11 +213,27 @@ export function ConversationPage() {
     const isProcessing =
         !!processingUpdate && !processingComplete && !processingError;
     const companyName = conversation?.companies?.[0]?.companyName;
+
+    // Check if ingestion is already completed (persisted in DB) or just completed (via SignalR)
+    const ingestionAlreadyCompleted =
+        conversation?.ingestionStatus === "Completed";
+    const justCompletedAndFaded =
+        !!processingComplete && completionVisibility === "hidden";
+
+    // Show status card only if we have companies, ingestion isn't complete, and there's no error
+    // Also show it temporarily when processing just completed (during fade animation)
     const showStatusCard =
-        hasCompanies && (!processingComplete || completionVisibility !== "hidden") && !processingError;
+        hasCompanies &&
+        !ingestionAlreadyCompleted &&
+        (!processingComplete || completionVisibility !== "hidden") &&
+        !processingError;
+
+    // Ready for chat when companies exist AND ingestion is complete (either from DB or just finished)
     const isReadyForChat =
-        hasCompanies && !!processingComplete && completionVisibility === "hidden";
-    const showEmptyState = !hasCompanies || showStatusCard || isReadyForChat || !!processingError;
+        hasCompanies && (ingestionAlreadyCompleted || justCompletedAndFaded);
+
+    const showEmptyState =
+        !hasCompanies || showStatusCard || isReadyForChat || !!processingError;
 
     useEffect(() => {
         if (!processingComplete || processingError) {
@@ -434,7 +450,6 @@ export function ConversationPage() {
                             onSendMessage={handleSendMessage}
                             isLoading={isLoading}
                             inputDisabled={isProcessing}
-                            conversationType={conversation?.type}
                             showInput={isReadyForChat}
                             showEmptyState={showEmptyState}
                             emptyStateContent={
