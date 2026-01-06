@@ -204,7 +204,7 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
 
             // Use pgvector's native cosine distance operator for efficient similarity search
             var results = await _context.Embeddings
-                .Where(e => e.Owner == EmbeddingOwner.SystemKnowledgeBase)
+                .Where(e => e.Owner == EmbeddingOwner.UserDocument)
                 .OrderBy(e => e.EmbeddingData.CosineDistance(queryVector))
                 .Take(topK)
                 .Select(e => new
@@ -244,9 +244,37 @@ namespace rag_experiment.Services.Ingestion.VectorStorage
             // Convert similarity threshold to distance threshold (distance = 1 - similarity)
             var maxDistance = 1.0 - minSimilarity;
 
+            // DEBUG: Calculate cosine distance for ALL embeddings to diagnose threshold issues
+            var allEmbeddings = await _context.Embeddings
+                .Where(e => e.Owner == EmbeddingOwner.UserDocument)
+                .Select(e => new
+                {
+                    e.Id,
+                    e.DocumentTitle,
+                    e.ChunkIndex,
+                    Distance = e.EmbeddingData.CosineDistance(queryVector)
+                })
+                .ToListAsync();
+
+            Console.WriteLine($"=== DEBUG: Cosine Distance Analysis ===");
+            Console.WriteLine($"Total embeddings in SystemKnowledgeBase: {allEmbeddings.Count}");
+            Console.WriteLine($"Max distance threshold (minSimilarity={minSimilarity}): {maxDistance}");
+            Console.WriteLine($"--- All distances (sorted by distance asc) ---");
+
+            foreach (var emb in allEmbeddings.OrderBy(e => e.Distance).Take(50)) // Show top 50 closest
+            {
+                var similarity = 1.0 - emb.Distance;
+                var passesThreshold = emb.Distance <= maxDistance ? "✓ PASS" : "✗ FAIL";
+                Console.WriteLine($"  ID={emb.Id}, Doc='{emb.DocumentTitle}', Chunk={emb.ChunkIndex}, Distance={emb.Distance:F4}, Similarity={similarity:F4} {passesThreshold}");
+            }
+
+            var passingCount = allEmbeddings.Count(e => e.Distance <= maxDistance);
+            Console.WriteLine($"--- Summary: {passingCount}/{allEmbeddings.Count} embeddings pass the threshold ---");
+            Console.WriteLine($"=== END DEBUG ===");
+
             // Build the query with pgvector's native cosine distance
             var query = _context.Embeddings
-                .Where(e => e.Owner == EmbeddingOwner.SystemKnowledgeBase)
+                .Where(e => e.Owner == EmbeddingOwner.UserDocument)
                 .Where(e => e.EmbeddingData.CosineDistance(queryVector) <= maxDistance)
                 .OrderBy(e => e.EmbeddingData.CosineDistance(queryVector));
 

@@ -207,11 +207,11 @@ namespace rag_experiment.Controllers
                             var referencedDocIds = request.ReferencedDocumentIds.Select(id => id.ToString()).ToList();
                             var queryVector = new Vector(queryEmbedding);
 
-                            // Get all embeddings for the referenced documents from SystemKnowledgeBase
+                            // Get all embeddings for the referenced documents from UserDocument
                             // Use pgvector's native cosine distance for similarity calculation
                             var referencedEmbeddingResults = await _dbContext.Embeddings
                                 .Where(e => referencedDocIds.Contains(e.DocumentId) &&
-                                           e.Owner == EmbeddingOwner.SystemKnowledgeBase)
+                                           e.Owner == EmbeddingOwner.UserDocument)
                                 .Select(e => new
                                 {
                                     e.Text,
@@ -270,11 +270,12 @@ namespace rag_experiment.Controllers
                             mergedEmbeddings.Count, topKSimilarEmbeddings.Count, referencedEmbeddings.Count);
 
                         // 8. Aggregate by document for source tracking (using merged embeddings)
+                        // DocumentId is a string (SEC filing ID like '10-K_0000320193-23-000106')
                         var documentContributions = mergedEmbeddings
                             .GroupBy(doc => doc.DocumentId)
                             .Select(g => new
                             {
-                                DocumentId = int.Parse(g.Key),
+                                DocumentId = g.Key,
                                 ChunksUsed = g.Count(),
                                 AvgSimilarity = g.Average(d => d.Similarity),
                                 MaxSimilarity = g.Max(d => d.Similarity),
@@ -283,40 +284,6 @@ namespace rag_experiment.Controllers
                             })
                             .OrderByDescending(d => d.MaxSimilarity)
                             .ToList();
-
-                        // Ensure all referenced documents are included as sources, even if they weren't in merged results
-                        if (request.ReferencedDocumentIds != null && request.ReferencedDocumentIds.Any())
-                        {
-                            var referencedDocIdsSet = request.ReferencedDocumentIds.ToHashSet();
-                            var existingDocIds = documentContributions.Select(d => d.DocumentId).ToHashSet();
-
-                            foreach (var referencedDocId in referencedDocIdsSet)
-                            {
-                                if (!existingDocIds.Contains(referencedDocId))
-                                {
-                                    // Get document info for referenced document that wasn't in results
-                                    var referencedDoc = await _documentRepository.GetByIdAsync(referencedDocId);
-                                    if (referencedDoc != null)
-                                    {
-                                        documentContributions.Add(new
-                                        {
-                                            DocumentId = referencedDocId,
-                                            ChunksUsed = 0,
-                                            AvgSimilarity = 0f,
-                                            MaxSimilarity = 0f,
-                                            DocumentTitle = referencedDoc.Title ?? referencedDoc.OriginalFileName,
-                                            Chunks = new List<(string Text, string DocumentId, string DocumentTitle, float Similarity)>()
-                                        });
-                                    }
-                                }
-                            }
-                        }
-
-                        // Get the IDs of all of the documents from the top-K embeddings
-                        var relatedDocumentsIds = documentContributions.Select(d => d.DocumentId).ToList();
-
-                        // Get the documents
-                        var relatedDocuments = await _documentRepository.GetByIdsAsync(relatedDocumentsIds);
 
                         // 9. Format the retrieved passages (using merged embeddings)
                         var retrievedResults = mergedEmbeddings.Select(doc => new
@@ -381,18 +348,8 @@ namespace rag_experiment.Controllers
                             Timestamp = DateTime.UtcNow
                         };
 
-                        // Add source citations
-                        int order = 0;
-                        foreach (var docContribution in documentContributions)
-                        {
-                            assistantMessage.Sources.Add(new MessageSource
-                            {
-                                DocumentId = docContribution.DocumentId,
-                                RelevanceScore = docContribution.MaxSimilarity,
-                                ChunksUsed = docContribution.ChunksUsed,
-                                Order = order++
-                            });
-                        }
+                        // Note: Source citations are skipped for now since DocumentIds are SEC filing strings,
+                        // not int FKs to the Document table. MessageSource requires int DocumentId.
 
                         // Save the assistant message with sources
                         await _conversationRepository.AddMessageAsync(assistantMessage);
