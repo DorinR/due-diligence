@@ -239,3 +239,6 @@ Uploads/
 
 # Training data
 Training/
+
+# MD files
+*.md

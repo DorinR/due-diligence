@@ -4,6 +4,8 @@ using System.Text.Json;
 using Hangfire;
 using Microsoft.AspNetCore.Hosting;
 using rag_experiment.Domain;
+using rag_experiment.Hubs.Models;
+using rag_experiment.Hubs.Services;
 using rag_experiment.Services.BackgroundJobs.Models;
 using rag_experiment.Services.FilingDownloader;
 using rag_experiment.Services.Ingestion.TextExtraction;
@@ -14,6 +16,7 @@ namespace rag_experiment.Services.BackgroundJobs;
 /// <summary>
 /// Orchestrates the batch filing ingestion pipeline.
 /// Jobs run sequentially, processing all documents at each stage before moving to the next.
+/// Emits real-time progress updates via SignalR to subscribed clients.
 /// </summary>
 public class DocumentProcessingJobService : IDocumentProcessingJobService
 {
@@ -23,6 +26,7 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
     private readonly ITextChunker _textChunker;
     private readonly IEmbeddingGenerationService _embeddingService;
     private readonly IEmbeddingRepository _embeddingRepository;
+    private readonly IDocumentProcessingNotifier _notifier;
     private readonly string _baseDirectory;
 
     public DocumentProcessingJobService(
@@ -32,6 +36,7 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
         ITextChunker textChunker,
         IEmbeddingGenerationService embeddingService,
         IEmbeddingRepository embeddingRepository,
+        IDocumentProcessingNotifier notifier,
         IWebHostEnvironment env)
     {
         _filingDownloader = filingDownloader;
@@ -40,6 +45,7 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
         _textChunker = textChunker;
         _embeddingService = embeddingService;
         _embeddingRepository = embeddingRepository;
+        _notifier = notifier;
         _baseDirectory = Path.Combine(env.ContentRootPath, "Temp", "ingestion-jobs");
     }
 
@@ -69,8 +75,8 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
         await SaveBatchStateAsync(conversationId.ToString(), state);
 
         // Set up the entire job chain
-        var job0 = BackgroundJob.Enqueue<DocumentProcessingJobService>(
-            x => x.DownloadFilings(companyIdentifier, filingTypes, conversationId));
+        var job0 = BackgroundJob.Enqueue<DocumentProcessingJobService>(x =>
+            x.DownloadFilings(companyIdentifier, filingTypes, conversationId));
 
         var job1 = BackgroundJob.ContinueJobWith<DocumentProcessingJobService>(
             job0, x => x.ExtractTextBatch(conversationId));
@@ -103,6 +109,14 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
         state.Status = BatchProcessingStatus.Downloading;
         await SaveBatchStateAsync(conversationId.ToString(), state);
 
+        // Send initial progress update
+        await _notifier.SendProgressUpdateAsync(conversationId.ToString(), new DocumentProcessingUpdate
+        {
+            Stage = BatchProcessingStatus.Downloading,
+            Message = $"Downloading {string.Join(", ", filingTypes)} filings for {companyIdentifier}...",
+            ProgressPercent = 10
+        });
+
         try
         {
             var documents = await _filingDownloader.DownloadFilingsAsync(companyIdentifier, filingTypes);
@@ -123,12 +137,30 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
                 FilingDate = d.FilingDate
             }).ToList();
             await SaveBatchStateAsync(conversationId.ToString(), state);
+
+            // Send completion update for this stage
+            await _notifier.SendProgressUpdateAsync(conversationId.ToString(), new DocumentProcessingUpdate
+            {
+                Stage = BatchProcessingStatus.Downloading,
+                Message = $"Downloaded {documents.Count} document(s)",
+                ProgressPercent = 20,
+                DocumentsProcessed = documents.Count,
+                TotalDocuments = documents.Count
+            });
         }
         catch (Exception ex)
         {
             state.Status = BatchProcessingStatus.Failed;
             state.ErrorMessage = ex.Message;
             await SaveBatchStateAsync(conversationId.ToString(), state);
+
+            // Send error notification
+            await _notifier.SendErrorAsync(conversationId.ToString(), new ProcessingErrorResult
+            {
+                ErrorMessage = ex.Message,
+                Stage = BatchProcessingStatus.Downloading
+            });
+
             throw;
         }
     }
@@ -155,6 +187,21 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
             EnsureDirectoryExists(extractedDir);
 
             var files = Directory.GetFiles(rawDir);
+            var processedCount = 0;
+            var totalDocuments = state.Documents.Count > 0
+                ? state.Documents.Count
+                : files.Length;
+
+            // Send progress update
+            await _notifier.SendProgressUpdateAsync(conversationId.ToString(), new DocumentProcessingUpdate
+            {
+                Stage = BatchProcessingStatus.Extracting,
+                Message = "Extracting text from documents...",
+                ProgressPercent = 30,
+                DocumentsProcessed = 0,
+                TotalDocuments = totalDocuments
+            });
+
             foreach (var filePath in files)
             {
                 var fileName = Path.GetFileName(filePath);
@@ -163,18 +210,39 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
                 // Skip if already extracted (idempotency)
                 if (File.Exists(outputPath))
                 {
+                    processedCount++;
                     continue;
                 }
 
                 var extractedText = await _textExtractor.ExtractTextAsync(filePath);
                 await WriteFileAtomicallyAsync(outputPath, extractedText);
+
+                processedCount++;
             }
+
+            // Send completion update for this stage
+            await _notifier.SendProgressUpdateAsync(conversationId.ToString(), new DocumentProcessingUpdate
+            {
+                Stage = BatchProcessingStatus.Extracting,
+                Message = $"Extracted text from {processedCount} document(s)",
+                ProgressPercent = 40,
+                DocumentsProcessed = processedCount,
+                TotalDocuments = totalDocuments
+            });
         }
         catch (Exception ex)
         {
             state.Status = BatchProcessingStatus.Failed;
             state.ErrorMessage = ex.Message;
             await SaveBatchStateAsync(conversationId.ToString(), state);
+
+            // Send error notification
+            await _notifier.SendErrorAsync(conversationId.ToString(), new ProcessingErrorResult
+            {
+                ErrorMessage = ex.Message,
+                Stage = BatchProcessingStatus.Extracting
+            });
+
             throw;
         }
     }
@@ -201,16 +269,36 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
             EnsureDirectoryExists(chunksDir);
 
             var chunksPath = Path.Combine(chunksDir, "chunks.json");
+            var files = Directory.GetFiles(extractedDir, "*.txt");
+            var totalDocuments = state.Documents.Count > 0
+                ? state.Documents.Count
+                : files.Length;
 
             // Skip if already chunked (idempotency)
             if (File.Exists(chunksPath))
             {
+                await _notifier.SendProgressUpdateAsync(conversationId.ToString(), new DocumentProcessingUpdate
+                {
+                    Stage = BatchProcessingStatus.Chunking,
+                    Message = "Chunks already generated. Skipping.",
+                    ProgressPercent = 60,
+                    DocumentsProcessed = files.Length,
+                    TotalDocuments = totalDocuments
+                });
                 return;
             }
 
-            var allChunks = new List<DocumentChunk>();
-            var files = Directory.GetFiles(extractedDir, "*.txt");
+            // Send progress update
+            await _notifier.SendProgressUpdateAsync(conversationId.ToString(), new DocumentProcessingUpdate
+            {
+                Stage = BatchProcessingStatus.Chunking,
+                Message = "Chunking text for embedding generation...",
+                ProgressPercent = 50,
+                DocumentsProcessed = 0,
+                TotalDocuments = totalDocuments
+            });
 
+            var allChunks = new List<DocumentChunk>();
             foreach (var filePath in files)
             {
                 var fileName = Path.GetFileName(filePath);
@@ -244,12 +332,30 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
 
             var json = JsonSerializer.Serialize(allChunks, new JsonSerializerOptions { WriteIndented = true });
             await WriteFileAtomicallyAsync(chunksPath, json);
+
+            // Send completion update for this stage
+            await _notifier.SendProgressUpdateAsync(conversationId.ToString(), new DocumentProcessingUpdate
+            {
+                Stage = BatchProcessingStatus.Chunking,
+                Message = $"Created {allChunks.Count} chunk(s) from {files.Length} document(s)",
+                ProgressPercent = 60,
+                DocumentsProcessed = files.Length,
+                TotalDocuments = totalDocuments
+            });
         }
         catch (Exception ex)
         {
             state.Status = BatchProcessingStatus.Failed;
             state.ErrorMessage = ex.Message;
             await SaveBatchStateAsync(conversationId.ToString(), state);
+
+            // Send error notification
+            await _notifier.SendErrorAsync(conversationId.ToString(), new ProcessingErrorResult
+            {
+                ErrorMessage = ex.Message,
+                Stage = BatchProcessingStatus.Chunking
+            });
+
             throw;
         }
     }
@@ -277,16 +383,43 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
 
             var chunksPath = Path.Combine(chunksDir, "chunks.json");
             var embeddingsPath = Path.Combine(embeddingsDir, "embeddings.json");
+            int totalDocuments;
 
             // Skip if already generated (idempotency)
             if (File.Exists(embeddingsPath))
             {
+                var extractedDir = GetDirectory(conversationId.ToString(), "extracted");
+                totalDocuments = state.Documents.Count > 0
+                    ? state.Documents.Count
+                    : Directory.GetFiles(extractedDir, "*.txt").Length;
+
+                await _notifier.SendProgressUpdateAsync(conversationId.ToString(), new DocumentProcessingUpdate
+                {
+                    Stage = BatchProcessingStatus.GeneratingEmbeddings,
+                    Message = "Embeddings already generated. Skipping.",
+                    ProgressPercent = 80,
+                    DocumentsProcessed = totalDocuments,
+                    TotalDocuments = totalDocuments
+                });
                 return;
             }
 
             var chunksJson = await File.ReadAllTextAsync(chunksPath);
             var chunks = JsonSerializer.Deserialize<List<DocumentChunk>>(chunksJson)
-                ?? throw new InvalidOperationException("Failed to deserialize chunks");
+                         ?? throw new InvalidOperationException("Failed to deserialize chunks");
+            totalDocuments = state.Documents.Count > 0
+                ? state.Documents.Count
+                : chunks.Select(chunk => chunk.SourceDocument).Distinct().Count();
+
+            // Send progress update
+            await _notifier.SendProgressUpdateAsync(conversationId.ToString(), new DocumentProcessingUpdate
+            {
+                Stage = BatchProcessingStatus.GeneratingEmbeddings,
+                Message = "Generating embeddings using OpenAI...",
+                ProgressPercent = 70,
+                DocumentsProcessed = 0,
+                TotalDocuments = totalDocuments
+            });
 
             // Generate embeddings for all chunk texts
             var chunkTexts = chunks.Select(c => c.Text).ToList();
@@ -305,12 +438,30 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
 
             var json = JsonSerializer.Serialize(chunkEmbeddings, new JsonSerializerOptions { WriteIndented = true });
             await WriteFileAtomicallyAsync(embeddingsPath, json);
+
+            // Send completion update for this stage
+            await _notifier.SendProgressUpdateAsync(conversationId.ToString(), new DocumentProcessingUpdate
+            {
+                Stage = BatchProcessingStatus.GeneratingEmbeddings,
+                Message = $"Generated embeddings for {chunkEmbeddings.Count} chunk(s)",
+                ProgressPercent = 80,
+                DocumentsProcessed = totalDocuments,
+                TotalDocuments = totalDocuments
+            });
         }
         catch (Exception ex)
         {
             state.Status = BatchProcessingStatus.Failed;
             state.ErrorMessage = ex.Message;
             await SaveBatchStateAsync(conversationId.ToString(), state);
+
+            // Send error notification
+            await _notifier.SendErrorAsync(conversationId.ToString(), new ProcessingErrorResult
+            {
+                ErrorMessage = ex.Message,
+                Stage = BatchProcessingStatus.GeneratingEmbeddings
+            });
+
             throw;
         }
     }
@@ -338,7 +489,20 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
 
             var embeddingsJson = await File.ReadAllTextAsync(embeddingsPath);
             var chunkEmbeddings = JsonSerializer.Deserialize<List<ChunkEmbedding>>(embeddingsJson)
-                ?? throw new InvalidOperationException("Failed to deserialize embeddings");
+                                  ?? throw new InvalidOperationException("Failed to deserialize embeddings");
+            var totalDocuments = state.Documents.Count > 0
+                ? state.Documents.Count
+                : chunkEmbeddings.Select(ce => ce.SourceDocument).Distinct().Count();
+
+            // Send progress update
+            await _notifier.SendProgressUpdateAsync(conversationId.ToString(), new DocumentProcessingUpdate
+            {
+                Stage = BatchProcessingStatus.PersistingEmbeddings,
+                Message = "Saving embeddings to database...",
+                ProgressPercent = 90,
+                DocumentsProcessed = 0,
+                TotalDocuments = totalDocuments
+            });
 
             // Build upsert items
             var items = chunkEmbeddings.Select(ce => new EmbeddingUpsertItem
@@ -360,12 +524,30 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
             state.Status = BatchProcessingStatus.Completed;
             state.CompletedAt = DateTime.UtcNow;
             await SaveBatchStateAsync(conversationId.ToString(), state);
+
+            // Send final completion notification
+            var duration = state.CompletedAt.Value - state.CreatedAt;
+            await _notifier.SendCompletionAsync(conversationId.ToString(), new ProcessingCompleteResult
+            {
+                TotalDocuments = totalDocuments,
+                SuccessfulDocuments = totalDocuments,
+                FailedDocuments = 0,
+                Duration = duration
+            });
         }
         catch (Exception ex)
         {
             state.Status = BatchProcessingStatus.Failed;
             state.ErrorMessage = ex.Message;
             await SaveBatchStateAsync(conversationId.ToString(), state);
+
+            // Send error notification
+            await _notifier.SendErrorAsync(conversationId.ToString(), new ProcessingErrorResult
+            {
+                ErrorMessage = ex.Message,
+                Stage = BatchProcessingStatus.PersistingEmbeddings
+            });
+
             throw;
         }
     }
@@ -400,9 +582,16 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
         {
             if (File.Exists(tempPath))
             {
-                try { File.Delete(tempPath); }
-                catch { /* Best effort */ }
+                try
+                {
+                    File.Delete(tempPath);
+                }
+                catch
+                {
+                    /* Best effort */
+                }
             }
+
             throw;
         }
     }
@@ -422,7 +611,7 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
         {
             var json = await File.ReadAllTextAsync(statePath);
             return JsonSerializer.Deserialize<BatchProcessingState>(json)
-                ?? throw new InvalidOperationException("Failed to deserialize batch state");
+                   ?? throw new InvalidOperationException("Failed to deserialize batch state");
         }
 
         throw new InvalidOperationException($"Batch state not found for conversation {conversationId}");

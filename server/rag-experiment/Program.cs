@@ -21,6 +21,8 @@ using rag_experiment.Repositories.Documents;
 using rag_experiment.Repositories.Conversations;
 using rag_experiment.Services.Ingestion.TextExtraction;
 using rag_experiment.Services.FilingDownloader;
+using rag_experiment.Hubs;
+using rag_experiment.Hubs.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -144,6 +146,16 @@ builder.Services.AddAuthentication(options =>
                     context.Token = authHeader.Substring("Bearer ".Length);
                 }
 
+                // Also check for token in query string for SignalR connections
+                // SignalR JavaScript client can't set headers for WebSocket connections
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+
                 return Task.CompletedTask;
             }
         };
@@ -167,8 +179,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(allowedOrigins)
             .AllowAnyMethod()
-            .AllowAnyHeader();
-        // Removed .AllowCredentials() since we're using Authorization headers instead of cookies
+            .AllowAnyHeader()
+            .AllowCredentials(); // Required for SignalR
     });
 });
 
@@ -295,6 +307,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IDocumentProcessingJobService, DocumentProcessingJobService>();
 builder.Services.AddScoped<DocumentProcessingJobService>();
 
+// Register SignalR services
+builder.Services.AddSignalR();
+builder.Services.AddScoped<IDocumentProcessingNotifier, DocumentProcessingNotifier>();
+
 // Register Filing Downloader services
 // SecEdgarClient is registered with HttpClient for proper connection management
 builder.Services.AddHttpClient<IFilingDownloader, SecEdgarClient>();
@@ -377,6 +393,9 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 });
 
 app.MapControllers();
+
+// Map SignalR hub endpoint
+app.MapHub<DocumentProcessingHub>("/hubs/document-processing");
 
 // Add health check endpoint
 app.MapHealthChecks("/health");

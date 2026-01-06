@@ -247,7 +247,6 @@ export function ChatInterface({
                     )}
                 </div>
             </div>
-
             {showInput && (
                 <div className="sticky bottom-0 flex gap-2">
                     <textarea

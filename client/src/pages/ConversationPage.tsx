@@ -1,3 +1,5 @@
+import { useSubscribeToConversation } from "@/hooks/realtime/useDocumentProcessingUpdates";
+import * as signalR from "@microsoft/signalr";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -19,6 +21,17 @@ export function ConversationPage() {
     const { conversationId } = useParams<{ conversationId: string }>();
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [completionVisibility, setCompletionVisibility] = useState<
+        "hidden" | "visible" | "fading"
+    >("hidden");
+    const {
+        connectionState,
+        processingComplete,
+        processingError,
+        processingUpdate,
+    } = useSubscribeToConversation({
+        conversationId,
+    });
 
     // Hooks for data fetching
     const {
@@ -127,6 +140,105 @@ export function ConversationPage() {
         [conversation?.companies?.length]
     );
 
+    const connectionBadge = useMemo(() => {
+        switch (connectionState) {
+            case signalR.HubConnectionState.Connected:
+                return {
+                    label: "Connected",
+                    className:
+                        "border-emerald-200 bg-emerald-50 text-emerald-700",
+                };
+            case signalR.HubConnectionState.Reconnecting:
+                return {
+                    label: "Reconnecting",
+                    className: "border-amber-200 bg-amber-50 text-amber-700",
+                };
+            case signalR.HubConnectionState.Connecting:
+                return {
+                    label: "Connecting",
+                    className: "border-blue-200 bg-blue-50 text-blue-700",
+                };
+            default:
+                return {
+                    label: "Disconnected",
+                    className: "border-gray-200 bg-gray-50 text-gray-600",
+                };
+        }
+    }, [connectionState]);
+
+    const processingStatus = useMemo(() => {
+        if (processingError) {
+            return {
+                title: "Processing failed",
+                detail: processingError.errorMessage,
+                tone: "text-red-700",
+            };
+        }
+
+        if (processingComplete) {
+            return {
+                title: "Processing complete",
+                detail: `${processingComplete.successfulDocuments} succeeded, ${processingComplete.failedDocuments} failed`,
+                tone: "text-emerald-700",
+            };
+        }
+
+        if (processingUpdate) {
+            return {
+                title: `Processing: ${processingUpdate.stage}`,
+                detail: processingUpdate.message,
+                tone: "text-blue-700",
+            };
+        }
+
+        return {
+            title: "Waiting for document processing",
+            detail: "Updates appear here as documents are ingested.",
+            tone: "text-gray-700",
+        };
+    }, [processingComplete, processingError, processingUpdate]);
+
+    const progressPercent = processingError
+        ? null
+        : processingComplete
+          ? 100
+          : processingUpdate?.progressPercent ?? null;
+    const progressDetail = processingUpdate?.totalDocuments
+        ? `${processingUpdate.documentsProcessed ?? 0} / ${
+              processingUpdate.totalDocuments
+          } documents`
+        : processingComplete
+          ? `${processingComplete.successfulDocuments} / ${processingComplete.totalDocuments} documents`
+          : null;
+    const isProcessing =
+        !!processingUpdate && !processingComplete && !processingError;
+    const showCompletePill =
+        completionVisibility !== "hidden" && !processingError;
+    const companyName = conversation?.companies?.[0]?.companyName;
+    const showStatusCard = !processingComplete || !!processingError;
+
+    useEffect(() => {
+        if (!processingComplete || processingError) {
+            setCompletionVisibility("hidden");
+            return;
+        }
+
+        setCompletionVisibility("visible");
+        const fadeTimer = window.setTimeout(
+            () => setCompletionVisibility("fading"),
+            4000
+        );
+        const hideTimer = window.setTimeout(
+            () => setCompletionVisibility("hidden"),
+            5200
+        );
+
+        return () => {
+            window.clearTimeout(fadeTimer);
+            window.clearTimeout(hideTimer);
+        };
+    }, [processingComplete, processingError]);
+
     const companyOptions: CompanyOption[] = useMemo(
         () => [
             { label: "Apple", ticker: "AAPL" },
@@ -229,16 +341,87 @@ export function ConversationPage() {
         <div className="flex h-full">
             {/* Chat interface */}
             <div className="flex-1">
-                <ChatInterface
-                    messages={messages}
-                    onSendMessage={handleSendMessage}
-                    isLoading={isLoading}
-                    conversationType={conversation?.type}
-                    showInput={hasCompanies}
-                    emptyStateContent={
-                        !hasCompanies ? renderCompanySelector : undefined
-                    }
-                />
+                <div className="flex h-full flex-col">
+                    <div className="px-4 pt-4">
+                        {showCompletePill ? (
+                            <div className="flex items-center justify-center">
+                                <div
+                                    className={`rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1 text-sm font-semibold text-emerald-700 transition-opacity duration-700 ${
+                                        completionVisibility === "fading"
+                                            ? "opacity-0"
+                                            : "opacity-100"
+                                    }`}
+                                >
+                                    Ingestion complete
+                                    {companyName ? ` for ${companyName}` : ""}
+                                </div>
+                            </div>
+                        ) : showStatusCard ? (
+                            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                        <div className="text-sm font-semibold text-slate-900">
+                                            Document processing status
+                                        </div>
+                                        <div
+                                            className={`mt-1 text-sm font-medium ${processingStatus.tone}`}
+                                        >
+                                            {processingStatus.title}
+                                        </div>
+                                        <div className="mt-1 text-xs text-slate-600">
+                                            {processingStatus.detail}
+                                        </div>
+                                    </div>
+                                    <span
+                                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${connectionBadge.className}`}
+                                    >
+                                        {connectionBadge.label}
+                                    </span>
+                                </div>
+                                {progressPercent !== null && (
+                                    <div className="mt-3">
+                                        <div className="h-2 w-full rounded-full bg-slate-100">
+                                            <div
+                                                className={`h-2 rounded-full bg-blue-500 ${
+                                                    isProcessing
+                                                        ? "animate-pulse shadow-[0_0_12px_rgba(59,130,246,0.65)]"
+                                                        : ""
+                                                }`}
+                                                style={{
+                                                    width: `${Math.min(
+                                                        100,
+                                                        Math.max(
+                                                            0,
+                                                            progressPercent
+                                                        )
+                                                    )}%`,
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="mt-2 flex items-center justify-between text-xs text-slate-600">
+                                            <span>{progressPercent}%</span>
+                                            {progressDetail && (
+                                                <span>{progressDetail}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : null}
+                    </div>
+                    <div className="flex-1">
+                        <ChatInterface
+                            messages={messages}
+                            onSendMessage={handleSendMessage}
+                            isLoading={isLoading}
+                            conversationType={conversation?.type}
+                            showInput={hasCompanies}
+                            emptyStateContent={
+                                !hasCompanies ? renderCompanySelector : undefined
+                            }
+                        />
+                    </div>
+                </div>
             </div>
         </div>
     );
