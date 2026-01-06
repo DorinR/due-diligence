@@ -3,10 +3,10 @@ using System.Text;
 using System.Text.Json;
 using Hangfire;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.EntityFrameworkCore;
 using rag_experiment.Domain;
 using rag_experiment.Hubs.Models;
 using rag_experiment.Hubs.Services;
+using rag_experiment.Repositories.Conversations;
 using rag_experiment.Services.BackgroundJobs.Models;
 using rag_experiment.Services.FilingDownloader;
 using rag_experiment.Services.Ingestion.TextExtraction;
@@ -28,7 +28,7 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
     private readonly IEmbeddingGenerationService _embeddingService;
     private readonly IEmbeddingRepository _embeddingRepository;
     private readonly IDocumentProcessingNotifier _notifier;
-    private readonly AppDbContext _dbContext;
+    private readonly IConversationRepository _conversationRepository;
     private readonly string _baseDirectory;
 
     public DocumentProcessingJobService(
@@ -39,7 +39,7 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
         IEmbeddingGenerationService embeddingService,
         IEmbeddingRepository embeddingRepository,
         IDocumentProcessingNotifier notifier,
-        AppDbContext dbContext,
+        IConversationRepository conversationRepository,
         IWebHostEnvironment env)
     {
         _filingDownloader = filingDownloader;
@@ -49,7 +49,7 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
         _embeddingService = embeddingService;
         _embeddingRepository = embeddingRepository;
         _notifier = notifier;
-        _dbContext = dbContext;
+        _conversationRepository = conversationRepository;
         _baseDirectory = Path.Combine(env.ContentRootPath, "Temp", "ingestion-jobs");
     }
 
@@ -644,15 +644,7 @@ public class DocumentProcessingJobService : IDocumentProcessingJobService
     /// <param name="status">The new ingestion status.</param>
     private async Task UpdateConversationIngestionStatusAsync(int conversationId, BatchProcessingStatus status)
     {
-        var conversation = await _dbContext.Conversations
-            .FirstOrDefaultAsync(c => c.Id == conversationId);
-
-        if (conversation != null)
-        {
-            conversation.IngestionStatus = status;
-            conversation.UpdatedAt = DateTime.UtcNow;
-            await _dbContext.SaveChangesAsync();
-        }
+        await _conversationRepository.UpdateIngestionStatusAsync(conversationId, status);
     }
 
     #endregion

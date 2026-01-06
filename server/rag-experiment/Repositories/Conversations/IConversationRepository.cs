@@ -1,4 +1,5 @@
 using rag_experiment.Domain;
+using rag_experiment.Services.BackgroundJobs.Models;
 
 namespace rag_experiment.Repositories.Conversations
 {
@@ -20,5 +21,13 @@ namespace rag_experiment.Repositories.Conversations
         /// <param name="message">The message to add</param>
         /// <returns>The added message with its generated ID</returns>
         Task<Message> AddMessageAsync(Message message);
+
+        /// <summary>
+        /// Updates the ingestion status on a conversation.
+        /// </summary>
+        /// <param name="conversationId">The conversation to update.</param>
+        /// <param name="status">The new ingestion status.</param>
+        /// <returns>True if the conversation was found and updated, false otherwise.</returns>
+        Task<bool> UpdateIngestionStatusAsync(int conversationId, BatchProcessingStatus status);
     }
 }

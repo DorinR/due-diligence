@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using rag_experiment.Domain;
 using rag_experiment.Services;
 using rag_experiment.Services.Auth;
+using rag_experiment.Services.BackgroundJobs.Models;
 
 namespace rag_experiment.Repositories.Conversations
 {
@@ -56,6 +57,26 @@ namespace rag_experiment.Repositories.Conversations
             await _dbContext.Messages.AddAsync(message);
             await _dbContext.SaveChangesAsync();
             return message;
+        }
+
+        /// <summary>
+        /// Updates the ingestion status on a conversation.
+        /// </summary>
+        /// <param name="conversationId">The conversation to update.</param>
+        /// <param name="status">The new ingestion status.</param>
+        /// <returns>True if the conversation was found and updated, false otherwise.</returns>
+        public async Task<bool> UpdateIngestionStatusAsync(int conversationId, BatchProcessingStatus status)
+        {
+            var conversation = await _dbContext.Conversations
+                .FirstOrDefaultAsync(c => c.Id == conversationId);
+
+            if (conversation == null)
+                return false;
+
+            conversation.IngestionStatus = status;
+            conversation.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync();
+            return true;
         }
     }
 }
