@@ -212,10 +212,12 @@ export function ConversationPage() {
           : null;
     const isProcessing =
         !!processingUpdate && !processingComplete && !processingError;
-    const showCompletePill =
-        completionVisibility !== "hidden" && !processingError;
     const companyName = conversation?.companies?.[0]?.companyName;
-    const showStatusCard = !processingComplete || !!processingError;
+    const showStatusCard =
+        hasCompanies && (!processingComplete || completionVisibility !== "hidden") && !processingError;
+    const isReadyForChat =
+        hasCompanies && !!processingComplete && completionVisibility === "hidden";
+    const showEmptyState = !hasCompanies || showStatusCard || isReadyForChat || !!processingError;
 
     useEffect(() => {
         if (!processingComplete || processingError) {
@@ -257,7 +259,6 @@ export function ConversationPage() {
             { conversationId, companyName: selectedCompany },
             {
                 onSuccess: () => {
-                    toast.success("Company set for research.");
                     setSelectedCompany("");
                     refetchConversation();
                 },
@@ -297,6 +298,82 @@ export function ConversationPage() {
                         {isSettingCompany ? "Loading..." : "Research"}
                     </Button>
                 )}
+            </div>
+        </div>
+    );
+
+    const renderProcessingStatus = (
+        <div
+            className={`w-full max-w-xl rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-opacity duration-700 ${
+                completionVisibility === "fading" ? "opacity-0" : "opacity-100"
+            }`}
+        >
+            <div className="flex items-start justify-between gap-4">
+                <div>
+                    <div className="text-sm font-semibold text-slate-900">
+                        Document processing status
+                    </div>
+                    <div
+                        className={`mt-1 text-sm font-medium ${processingStatus.tone}`}
+                    >
+                        {processingStatus.title}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-600">
+                        {processingStatus.detail}
+                    </div>
+                </div>
+                <span
+                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${connectionBadge.className}`}
+                >
+                    {connectionBadge.label}
+                </span>
+            </div>
+            {progressPercent !== null && (
+                <div className="mt-3">
+                    <div className="h-2 w-full rounded-full bg-slate-100">
+                        <div
+                            className={`h-2 rounded-full bg-blue-500 ${
+                                isProcessing
+                                    ? "animate-pulse shadow-[0_0_12px_rgba(59,130,246,0.65)]"
+                                    : ""
+                            }`}
+                            style={{
+                                width: `${Math.min(
+                                    100,
+                                    Math.max(0, progressPercent)
+                                )}%`,
+                            }}
+                        />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-xs text-slate-600">
+                        <span>{progressPercent}%</span>
+                        {progressDetail && <span>{progressDetail}</span>}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+
+    const renderProcessingError = (
+        <div className="w-full max-w-xl rounded-lg border border-red-200 bg-red-50 p-4 text-left shadow-sm">
+            <div className="text-sm font-semibold text-red-700">
+                Processing failed
+            </div>
+            <div className="mt-1 text-xs text-red-600">
+                {processingError?.errorMessage ??
+                    "We ran into an issue while ingesting the documents."}
+            </div>
+        </div>
+    );
+
+    const renderCallToAction = (
+        <div className="max-w-xl text-center">
+            <div className="text-xl font-semibold text-slate-900">
+                Ask about the company&apos;s financials
+            </div>
+            <div className="mt-2 text-sm text-slate-600">
+                Start with revenue trends, guidance changes, balance sheet
+                strength, or any red flags you want to investigate.
             </div>
         </div>
     );
@@ -343,69 +420,11 @@ export function ConversationPage() {
             <div className="flex-1">
                 <div className="flex h-full flex-col">
                     <div className="px-4 pt-4">
-                        {showCompletePill ? (
+                        {isReadyForChat && companyName ? (
                             <div className="flex items-center justify-center">
-                                <div
-                                    className={`rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1 text-sm font-semibold text-emerald-700 transition-opacity duration-700 ${
-                                        completionVisibility === "fading"
-                                            ? "opacity-0"
-                                            : "opacity-100"
-                                    }`}
-                                >
-                                    Ingestion complete
-                                    {companyName ? ` for ${companyName}` : ""}
+                                <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                    Training data: {companyName}
                                 </div>
-                            </div>
-                        ) : showStatusCard ? (
-                            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div>
-                                        <div className="text-sm font-semibold text-slate-900">
-                                            Document processing status
-                                        </div>
-                                        <div
-                                            className={`mt-1 text-sm font-medium ${processingStatus.tone}`}
-                                        >
-                                            {processingStatus.title}
-                                        </div>
-                                        <div className="mt-1 text-xs text-slate-600">
-                                            {processingStatus.detail}
-                                        </div>
-                                    </div>
-                                    <span
-                                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${connectionBadge.className}`}
-                                    >
-                                        {connectionBadge.label}
-                                    </span>
-                                </div>
-                                {progressPercent !== null && (
-                                    <div className="mt-3">
-                                        <div className="h-2 w-full rounded-full bg-slate-100">
-                                            <div
-                                                className={`h-2 rounded-full bg-blue-500 ${
-                                                    isProcessing
-                                                        ? "animate-pulse shadow-[0_0_12px_rgba(59,130,246,0.65)]"
-                                                        : ""
-                                                }`}
-                                                style={{
-                                                    width: `${Math.min(
-                                                        100,
-                                                        Math.max(
-                                                            0,
-                                                            progressPercent
-                                                        )
-                                                    )}%`,
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="mt-2 flex items-center justify-between text-xs text-slate-600">
-                                            <span>{progressPercent}%</span>
-                                            {progressDetail && (
-                                                <span>{progressDetail}</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         ) : null}
                     </div>
@@ -414,10 +433,18 @@ export function ConversationPage() {
                             messages={messages}
                             onSendMessage={handleSendMessage}
                             isLoading={isLoading}
+                            inputDisabled={isProcessing}
                             conversationType={conversation?.type}
-                            showInput={hasCompanies}
+                            showInput={isReadyForChat}
+                            showEmptyState={showEmptyState}
                             emptyStateContent={
-                                !hasCompanies ? renderCompanySelector : undefined
+                                !hasCompanies
+                                    ? renderCompanySelector
+                                    : processingError
+                                      ? renderProcessingError
+                                      : showStatusCard
+                                        ? renderProcessingStatus
+                                        : renderCallToAction
                             }
                         />
                     </div>

@@ -21,6 +21,8 @@ type ChatInterfaceProps = {
     showInput?: boolean;
     emptyStateContent?: ReactNode;
     conversationType?: string;
+    inputDisabled?: boolean;
+    showEmptyState?: boolean;
 };
 
 export function ChatInterface({
@@ -29,8 +31,11 @@ export function ChatInterface({
     isLoading = false,
     showInput = true,
     emptyStateContent,
+    inputDisabled = false,
+    showEmptyState = true,
 }: ChatInterfaceProps) {
     const [inputValue, setInputValue] = useState("");
+    const isInputDisabled = isLoading || inputDisabled;
 
     const handleSendMessage = () => {
         if (inputValue.trim()) {
@@ -47,11 +52,11 @@ export function ChatInterface({
     };
 
     const getEmptyStateText = () => {
-        return "Ask questions about your documents";
+        return "Ask questions about the company";
     };
 
     const getPlaceholderText = () => {
-        return "Ask a question about your documents...";
+        return "Ask a question about the company...";
     };
 
     return (
@@ -62,11 +67,17 @@ export function ChatInterface({
             >
                 <div className="flex flex-col gap-4 pb-4">
                     {messages.length === 0
-                        ? (emptyStateContent ?? (
-                              <div className="py-9 text-center text-gray-500">
-                                  {getEmptyStateText()}
-                              </div>
-                          ))
+                        ? showEmptyState
+                            ? (
+                                  <div className="flex min-h-[60vh] items-center justify-center">
+                                      {emptyStateContent ?? (
+                                          <div className="text-center text-gray-500">
+                                              {getEmptyStateText()}
+                                          </div>
+                                      )}
+                                  </div>
+                              )
+                            : null
                         : messages.map((message) => (
                               <div
                                   key={message.id}
@@ -254,13 +265,13 @@ export function ChatInterface({
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        disabled={isLoading}
+                        disabled={isInputDisabled}
                         className="flex-1 grow resize-none rounded-lg border border-gray-300 bg-white p-3 focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
                         rows={1}
                     />
                     <Button
                         onClick={handleSendMessage}
-                        disabled={!inputValue.trim() || isLoading}
+                        disabled={!inputValue.trim() || isInputDisabled}
                         variant="primary"
                         icon={PaperPlaneIcon}
                         iconPosition="left"
