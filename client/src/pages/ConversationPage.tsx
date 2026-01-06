@@ -431,10 +431,10 @@ export function ConversationPage() {
     }
 
     return (
-        <div className="flex h-full">
+        <div className="flex h-full min-h-0">
             {/* Chat interface */}
-            <div className="flex-1">
-                <div className="flex h-full flex-col">
+            <div className="flex-1 min-h-0">
+                <div className="flex h-full min-h-0 flex-col">
                     <div className="px-4 pt-4">
                         {isReadyForChat && companyName ? (
                             <div className="flex items-center justify-center">
@@ -444,7 +444,7 @@ export function ConversationPage() {
                             </div>
                         ) : null}
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-h-0">
                         <ChatInterface
                             messages={messages}
                             onSendMessage={handleSendMessage}

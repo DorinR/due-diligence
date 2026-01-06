@@ -60,11 +60,8 @@ export function ChatInterface({
     };
 
     return (
-        <div className="flex h-full flex-col p-4">
-            <div
-                className="scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 flex-1 overflow-y-auto"
-                style={{ height: "calc(100% - 130px)" }}
-            >
+        <div className="flex h-full min-h-0 flex-col p-4">
+            <div className="scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 flex-1 min-h-0 overflow-y-auto">
                 <div className="flex flex-col gap-4 pb-4">
                     {messages.length === 0
                         ? showEmptyState
