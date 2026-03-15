@@ -29,7 +29,10 @@ export type Conversation = {
 };
 
 export const getConversationList = async (): Promise<Conversation[]> => {
-    const response = await backendAccessPoint.get<Array<ConversationFromServer>>("/api/conversation");
+    const response =
+        await backendAccessPoint.get<Array<ConversationFromServer>>(
+            "/api/conversation",
+        );
     return response.data.map((conv) => ({
         id: conv.id,
         title: conv.title,
@@ -50,4 +53,3 @@ export const useGetConversationList = () => {
         refetchOnMount: true,
     });
 };
-

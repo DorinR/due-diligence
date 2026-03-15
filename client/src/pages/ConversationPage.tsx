@@ -68,7 +68,7 @@ export function ConversationPage() {
                 sources: msg.sources || undefined, // Convert null to undefined for optional property
             }));
         },
-        []
+        [],
     );
 
     // Update messages when conversation data changes
@@ -121,23 +121,23 @@ export function ConversationPage() {
                     },
                     onError: () => {
                         toast.error(
-                            "Failed to send your message. Please try again."
+                            "Failed to send your message. Please try again.",
                         );
                         setIsLoading(false);
                         // Remove optimistic update on error
                         setMessages((prev) =>
-                            prev.filter((msg) => msg.id !== newUserMessage.id)
+                            prev.filter((msg) => msg.id !== newUserMessage.id),
                         );
                     },
-                }
+                },
             );
         },
-        [conversationId, sendMessage, refetchConversation]
+        [conversationId, sendMessage, refetchConversation],
     );
 
     const hasCompanies = useMemo(
         () => (conversation?.companies?.length ?? 0) > 0,
-        [conversation?.companies?.length]
+        [conversation?.companies?.length],
     );
 
     const connectionBadge = useMemo(() => {
@@ -244,11 +244,11 @@ export function ConversationPage() {
         setCompletionVisibility("visible");
         const fadeTimer = window.setTimeout(
             () => setCompletionVisibility("fading"),
-            4000
+            4000,
         );
         const hideTimer = window.setTimeout(
             () => setCompletionVisibility("hidden"),
-            5200
+            5200,
         );
 
         return () => {
@@ -265,7 +265,7 @@ export function ConversationPage() {
             { label: "Alphabet", ticker: "GOOG" },
             { label: "Berkshire Hathaway", ticker: "BRK.B" },
         ],
-        []
+        [],
     );
 
     const handleResearch = () => {
@@ -281,7 +281,7 @@ export function ConversationPage() {
                 onError: () => {
                     toast.error("Failed to set company. Please try again.");
                 },
-            }
+            },
         );
     };
 
@@ -356,7 +356,7 @@ export function ConversationPage() {
                             style={{
                                 width: `${Math.min(
                                     100,
-                                    Math.max(0, progressPercent)
+                                    Math.max(0, progressPercent),
                                 )}%`,
                             }}
                         />

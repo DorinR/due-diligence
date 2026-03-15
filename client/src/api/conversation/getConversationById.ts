@@ -88,11 +88,12 @@ type ConversationWithDetailsFromServer = {
 };
 
 export const getConversationById = async (
-    conversationId: string
+    conversationId: string,
 ): Promise<ConversationWithDetails> => {
-    const response = await backendAccessPoint.get<ConversationWithDetailsFromServer>(
-        `/api/conversation/${conversationId}`
-    );
+    const response =
+        await backendAccessPoint.get<ConversationWithDetailsFromServer>(
+            `/api/conversation/${conversationId}`,
+        );
 
     const serverData = response.data;
 
@@ -134,4 +135,3 @@ export const useGetConversationById = (conversationId: string) => {
         refetchOnMount: true,
     });
 };
-

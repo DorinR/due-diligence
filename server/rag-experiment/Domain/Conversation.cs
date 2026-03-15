@@ -10,7 +10,7 @@ namespace rag_experiment.Domain
     {
         public int Id { get; set; }
 
-        [Required] [MaxLength(200)] public string Title { get; set; }
+        [Required][MaxLength(200)] public string Title { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
@@ -28,7 +28,7 @@ namespace rag_experiment.Domain
         // Navigation properties
         public List<Document> Documents { get; set; } = new();
         public List<Message> Messages { get; set; } = new();
-        
+
         /// <summary>
         /// The companies being researched in this conversation
         /// </summary>
