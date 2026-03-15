@@ -1,4 +1,4 @@
-import { ChatBubbleIcon, PlusIcon, TrashIcon } from '@radix-ui/react-icons';
+import { MessageSquare, Plus, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useGetConversationList } from '../api/conversation/getConversationList';
@@ -98,7 +98,7 @@ export function ConversationSidebar() {
                         onClick={handleNewConversation}
                         disabled={isCreating}
                         variant="primary"
-                        icon={PlusIcon}
+                        icon={Plus}
                         iconPosition="left"
                         className="w-full"
                     >
@@ -123,7 +123,7 @@ export function ConversationSidebar() {
                                     onClick={() => handleSelectConversation(conversation.id)}
                                 >
                                     <div className="flex min-w-0 flex-1 items-center gap-3">
-                                        <ChatBubbleIcon
+                                        <MessageSquare
                                             className={`h-5 w-5 flex-shrink-0 ${
                                                 conversation.id === conversationId
                                                     ? 'text-blue-600'
@@ -156,14 +156,14 @@ export function ConversationSidebar() {
                                         disabled={isDeleting}
                                         className="rounded p-1 text-gray-400 opacity-0 transition-all group-hover:opacity-100 hover:bg-red-50 hover:text-red-600"
                                     >
-                                        <TrashIcon className="h-4 w-4" />
+                                        <Trash2 className="h-4 w-4" />
                                     </button>
                                 </div>
                             ))}
                         </div>
                     ) : (
                         <div className="py-8 text-center text-gray-500">
-                            <ChatBubbleIcon className="mx-auto h-12 w-12 text-gray-300" />
+                            <MessageSquare className="mx-auto h-12 w-12 text-gray-300" />
                             <p className="mt-2 text-sm">No conversations yet</p>
                             <p className="text-xs">Create your first conversation to get started</p>
                         </div>

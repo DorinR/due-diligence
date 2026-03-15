@@ -1,4 +1,4 @@
-import { ExitIcon, MoonIcon, SunIcon } from "@radix-ui/react-icons";
+import { LogOut, Moon, Sun } from "lucide-react";
 import { Avatar, Text } from "@radix-ui/themes";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
@@ -55,7 +55,7 @@ export const Navbar = () => {
                                 <Button
                                     onClick={handleLogout}
                                     variant="soft"
-                                    icon={ExitIcon}
+                                    icon={LogOut}
                                     iconPosition="left"
                                 >
                                     Sign out
@@ -78,9 +78,9 @@ export const Navbar = () => {
                                 aria-label="Toggle theme"
                             >
                                 {theme === "dark" ? (
-                                    <SunIcon className="text-foreground h-5 w-5" />
+                                    <Sun className="text-foreground h-5 w-5" />
                                 ) : (
-                                    <MoonIcon className="text-foreground h-5 w-5" />
+                                    <Moon className="text-foreground h-5 w-5" />
                                 )}
                             </button>
                         )}

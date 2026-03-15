@@ -1,4 +1,4 @@
-import { UploadIcon } from '@radix-ui/react-icons';
+import { Upload } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
@@ -85,7 +85,7 @@ export function FileDropzone({ onFilesDrop, conversationId }: FileDropzoneProps)
                 <input {...getInputProps()} />
                 <div className="flex flex-col items-center gap-6 py-9">
                     <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
-                        <UploadIcon width={36} height={36} className="text-gray-600" />
+                        <Upload width={36} height={36} className="text-gray-600" />
                     </div>
                     <h2 className="text-center text-2xl font-semibold text-gray-900">
                         {uploading ? 'Uploading...' : 'Drop your PDFs here'}

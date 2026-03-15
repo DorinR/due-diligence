@@ -1,4 +1,4 @@
-import { PaperPlaneIcon } from "@radix-ui/react-icons";
+import { Send } from "lucide-react";
 import { ReactNode, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -270,7 +270,7 @@ export function ChatInterface({
                         onClick={handleSendMessage}
                         disabled={!inputValue.trim() || isInputDisabled}
                         variant="primary"
-                        icon={PaperPlaneIcon}
+                        icon={Send}
                         iconPosition="left"
                     >
                         Send

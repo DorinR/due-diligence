@@ -1,4 +1,4 @@
-import { MinusIcon, MoonIcon, PlusIcon, SunIcon } from '@radix-ui/react-icons';
+import { Minus, Moon, Plus, Sun } from 'lucide-react';
 import {
   Badge,
   Box,
@@ -31,7 +31,7 @@ export default function TestPage() {
             Radix Themes Components
           </Heading>
           <Flex align="center" gap="2">
-            {theme === 'dark' ? <MoonIcon /> : <SunIcon />}
+            {theme === 'dark' ? <Moon /> : <Sun />}
             <Switch
               checked={theme === 'dark'}
               onCheckedChange={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -92,16 +92,16 @@ export default function TestPage() {
               </Text>
               <Flex gap="4" wrap="wrap">
                 <IconButton size="1">
-                  <PlusIcon />
+                  <Plus />
                 </IconButton>
                 <IconButton size="2">
-                  <PlusIcon />
+                  <Plus />
                 </IconButton>
                 <IconButton size="3">
-                  <PlusIcon />
+                  <Plus />
                 </IconButton>
                 <IconButton size="4">
-                  <PlusIcon />
+                  <Plus />
                 </IconButton>
               </Flex>
             </Box>
@@ -221,13 +221,13 @@ export default function TestPage() {
 
           <Flex align="center" gap="4">
             <IconButton onClick={() => setCount(count => count - 1)} variant="soft">
-              <MinusIcon />
+              <Minus />
             </IconButton>
             <Text size="5" weight="bold">
               {count}
             </Text>
             <IconButton onClick={() => setCount(count => count + 1)} variant="soft">
-              <PlusIcon />
+              <Plus />
             </IconButton>
           </Flex>
         </Card>

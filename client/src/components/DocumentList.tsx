@@ -1,4 +1,4 @@
-import { FileTextIcon, PlusIcon, TrashIcon } from '@radix-ui/react-icons';
+import { FileText, Plus, Trash2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useDeleteDocument } from '../api/document/deleteDocument';
@@ -92,7 +92,7 @@ export function DocumentList({
                             className="rounded-md border border-transparent bg-slate-50 p-3 transition-all duration-200 hover:bg-slate-100"
                         >
                             <div className="flex items-center gap-2">
-                                <FileTextIcon width={20} height={20} className="text-gray-600" />
+                                <FileText width={20} height={20} className="text-gray-600" />
                                 <div className="min-w-0 flex-1">
                                     <div className="text-sm font-medium break-words text-gray-900">
                                         {doc.name}
@@ -110,7 +110,7 @@ export function DocumentList({
                                     className="rounded p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
                                     title="Delete document"
                                 >
-                                    <TrashIcon width={14} height={14} />
+                                    <Trash2 width={14} height={14} />
                                 </button>
                             </div>
                         </div>
@@ -124,7 +124,7 @@ export function DocumentList({
                 onClick={onAddNewDocument}
                 className="flex w-full items-center justify-center gap-2 rounded-md bg-gray-100 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-200"
             >
-                <PlusIcon width={16} height={16} />
+                <Plus width={16} height={16} />
                 Add Document
             </button>
 

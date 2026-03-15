@@ -1,24 +1,24 @@
-import { ArrowRightIcon, CheckIcon, PlusIcon, TrashIcon } from '@radix-ui/react-icons';
+import { ArrowRight, Check, Plus, Trash2 } from 'lucide-react';
 import { Button } from './Button';
 
 export const ButtonDemo = () => {
     return (
         <div className="flex gap-4 p-4">
             {/* Button with left icon */}
-            <Button icon={PlusIcon} variant="primary">
+            <Button icon={Plus} variant="primary">
                 Add Item
             </Button>
 
             {/* Button with right icon */}
-            <Button icon={ArrowRightIcon} iconPosition="right" variant="neutral">
+            <Button icon={ArrowRight} iconPosition="right" variant="neutral">
                 Continue
             </Button>
 
             {/* Icon-only button */}
-            <Button icon={TrashIcon} variant="danger" />
+            <Button icon={Trash2} variant="danger" />
 
             {/* Button with different icon */}
-            <Button icon={CheckIcon} variant="soft">
+            <Button icon={Check} variant="soft">
                 Complete
             </Button>
         </div>

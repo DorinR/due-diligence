@@ -1,4 +1,4 @@
-import { Cross2Icon, PlusIcon } from '@radix-ui/react-icons';
+import { Plus, X } from 'lucide-react';
 
 export type Conversation = {
     id: string;
@@ -29,7 +29,7 @@ export function ConversationsList({
                 onClick={onNewConversation}
                 className="mb-4 flex w-full items-center justify-center gap-2 rounded-md bg-gray-100 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-200"
             >
-                <PlusIcon width={16} height={16} />
+                <Plus width={16} height={16} />
                 New Conversation
             </button>
 
@@ -74,7 +74,7 @@ export function ConversationsList({
                                     }}
                                     className="ml-2 rounded p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
                                 >
-                                    <Cross2Icon width={14} height={14} />
+                                    <X width={14} height={14} />
                                 </button>
                             </div>
                         ))

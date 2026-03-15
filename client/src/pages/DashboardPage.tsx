@@ -1,4 +1,4 @@
-import { ChatBubbleIcon, PlusIcon } from '@radix-ui/react-icons';
+import { MessageSquare, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useCreateConversation } from '../api/conversation/createConversation';
@@ -27,7 +27,7 @@ export function DashboardPage() {
         <div className="flex h-full items-center justify-center bg-gray-50">
             <div className="max-w-md text-center">
                 <div className="mb-8">
-                    <ChatBubbleIcon className="mx-auto h-16 w-16 text-blue-500" />
+                    <MessageSquare className="mx-auto h-16 w-16 text-blue-500" />
                 </div>
 
                 <h1 className="mb-4 text-3xl font-bold text-gray-900">
@@ -43,7 +43,7 @@ export function DashboardPage() {
                     onClick={handleCreateFirstConversation}
                     disabled={isCreating}
                     variant="primary"
-                    icon={PlusIcon}
+                    icon={Plus}
                     iconPosition="left"
                     className="px-8 py-3 text-lg"
                 >
