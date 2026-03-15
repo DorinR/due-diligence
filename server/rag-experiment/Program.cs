@@ -218,7 +218,6 @@ builder.Services.AddHttpContextAccessor();
 // Register our services
 builder.Services.AddScoped<IUserContext, UserContext>();
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IObsidianVaultReader, ObsidianVaultReader>();
 builder.Services.AddScoped<PdfDocumentTextExtractor>();
 builder.Services.AddScoped<PlainTextDocumentTextExtractor>();
 builder.Services.AddScoped<HtmlDocumentTextExtractor>();
