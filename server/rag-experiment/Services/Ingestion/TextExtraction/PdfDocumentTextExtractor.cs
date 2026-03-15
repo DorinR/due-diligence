@@ -8,6 +8,13 @@ namespace rag_experiment.Services
 {
     public class PdfDocumentTextExtractor : ITextExtractor
     {
+        private readonly ILogger<PdfDocumentTextExtractor> _logger;
+
+        public PdfDocumentTextExtractor(ILogger<PdfDocumentTextExtractor> logger)
+        {
+            _logger = logger;
+        }
+
         /// <inheritdoc />
         public async Task<string> ExtractTextAsync(string filePath)
         {
@@ -43,8 +50,7 @@ namespace rag_experiment.Services
                 }
                 catch (Exception ex)
                 {
-                    // Log the error and continue with other files
-                    Console.WriteLine($"Error reading PDF file {filePath}: {ex.Message}");
+                    _logger.LogWarning(ex, "Error reading PDF file {FilePath}", filePath);
                 }
             }
 

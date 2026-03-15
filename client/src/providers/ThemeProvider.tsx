@@ -73,8 +73,6 @@ export const ThemeProvider = ({
                 : 'light'
             : theme;
 
-    console.log('resolvedTheme', resolvedTheme);
-
     return (
         <ThemeProviderContext.Provider {...props} value={value}>
             <RadixTheme

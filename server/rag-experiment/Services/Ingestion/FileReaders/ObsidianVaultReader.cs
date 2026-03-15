@@ -2,6 +2,13 @@ namespace rag_experiment.Services
 {
     public class ObsidianVaultReader : IObsidianVaultReader
     {
+        private readonly ILogger<ObsidianVaultReader> _logger;
+
+        public ObsidianVaultReader(ILogger<ObsidianVaultReader> logger)
+        {
+            _logger = logger;
+        }
+
         public async Task<Dictionary<string, string>> ReadMarkdownFilesAsync(string vaultPath)
         {
             if (!Directory.Exists(vaultPath))
@@ -21,8 +28,7 @@ namespace rag_experiment.Services
                 }
                 catch (IOException ex)
                 {
-                    // Log the error and continue with other files
-                    Console.WriteLine($"Error reading file {filePath}: {ex.Message}");
+                    _logger.LogWarning(ex, "Error reading markdown file {FilePath}", filePath);
                 }
             }
 

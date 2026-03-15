@@ -108,7 +108,7 @@ public class TrainingController : ControllerBase
 
                     if (string.IsNullOrWhiteSpace(rawText))
                     {
-                        Console.WriteLine($"Warning: No text found in {fileName}");
+                        _logger.LogWarning("No text found in training file {FileName}", fileName);
                         continue;
                     }
 
@@ -175,12 +175,15 @@ public class TrainingController : ControllerBase
                     documentsProcessed++;
                     processedFiles.Add(fileName);
 
-                    Console.WriteLine(
-                        $"Processed training document: {fileName} ({chunks.Count} chunks) - Document ID: {document.Id}");
+                    _logger.LogInformation(
+                        "Processed training document {FileName} with {ChunkCount} chunks and document ID {DocumentId}",
+                        fileName,
+                        chunks.Count,
+                        document.Id);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error processing {fileName}: {ex.Message}");
+                    _logger.LogError(ex, "Error processing training file {FileName}", fileName);
                     // Continue with other files
                 }
             }

@@ -168,11 +168,6 @@ if (allowedOrigins == null || !allowedOrigins.Any())
     throw new InvalidOperationException("No allowed origins configured for CORS");
 }
 
-// Debug logging for production troubleshooting
-Console.WriteLine($"[CORS DEBUG] Environment: {builder.Environment.EnvironmentName}");
-Console.WriteLine($"[CORS DEBUG] Allowed Origins: [{string.Join(", ", allowedOrigins)}]");
-Console.WriteLine($"[CORS DEBUG] Total Origins Count: {allowedOrigins.Length}");
-
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -251,12 +246,8 @@ builder.Services
 // Register AppDbContext with PostgreSQL connection
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
-// Debug logging for connection string
-Console.WriteLine($"[DB DEBUG] Environment: {builder.Environment.EnvironmentName}");
 if (!string.IsNullOrEmpty(connectionString))
 {
-    Console.WriteLine($"[DB DEBUG] Original Connection String: {connectionString}");
-
     // Convert PostgreSQL URI format to key-value format if needed
     if (connectionString.StartsWith("postgresql://") || connectionString.StartsWith("postgres://"))
     {
@@ -272,17 +263,11 @@ if (!string.IsNullOrEmpty(connectionString))
 
             connectionString =
                 $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
-            Console.WriteLine($"[DB DEBUG] Converted Connection String: {connectionString}");
         }
-        catch (Exception ex)
+        catch
         {
-            Console.WriteLine($"[DB DEBUG] Failed to convert URI connection string: {ex.Message}");
         }
     }
-}
-else
-{
-    Console.WriteLine("[DB DEBUG] Warning: No connection string configured!");
 }
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -297,8 +282,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     var loggingEnabled = builder.Configuration.GetValue<bool>("Logging:EntityFramework:Enabled", false);
     if (loggingEnabled)
     {
-        options.LogTo(Console.WriteLine)
-            .EnableSensitiveDataLogging()
+        options.EnableSensitiveDataLogging()
             .EnableDetailedErrors();
     }
 });
@@ -378,9 +362,6 @@ if (app.Environment.IsDevelopment())
 
 // Enable CORS with the "AllowAll" policy
 app.UseCors("AllowAll");
-
-// Log CORS middleware application
-Console.WriteLine("[CORS DEBUG] CORS middleware applied with 'AllowAll' policy");
 
 // Add authentication middleware
 app.UseAuthentication();

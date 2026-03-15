@@ -50,7 +50,6 @@ namespace rag_experiment.Services
             if (currentChunk.Any())
             {
                 var chunk = string.Join(" ", currentChunk);
-                Console.WriteLine($"Chunk characters: {chunk.Length}");
                 chunks.Add(chunk);
             }
 
