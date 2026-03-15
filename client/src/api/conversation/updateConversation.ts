@@ -1,20 +1,51 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { backendAccessPoint } from "../backendAccessPoint";
-import { Conversation } from "./getConversationList";
+import { ConversationSummary } from "./getConversationList";
+
+type UpdateConversationRequestDto = {
+    title: string;
+};
+
+type UpdateConversationResponseDto = {
+    id: string;
+    title: string;
+    createdAt: string;
+    updatedAt: string;
+    ingestionStatus: import("./getConversationById").IngestionStatus | null;
+    companies: Array<{
+        id: number | string;
+        companyName: string;
+    }>;
+};
 
 export type UpdateConversationRequest = {
     title: string;
 };
 
+export type UpdateConversationResponse = ConversationSummary;
+
 export const updateConversation = async (
     conversationId: string,
     data: UpdateConversationRequest
-): Promise<Conversation> => {
-    const response = await backendAccessPoint.put<Conversation>(
+): Promise<UpdateConversationResponse> => {
+    const payload: UpdateConversationRequestDto = {
+        title: data.title,
+    };
+    const response = await backendAccessPoint.put<UpdateConversationResponseDto>(
         `/api/conversation/${conversationId}`,
-        data
+        payload
     );
-    return response.data;
+    return {
+        id: response.data.id,
+        title: response.data.title,
+        createdAt: response.data.createdAt,
+        updatedAt: response.data.updatedAt,
+        ingestionStatus: response.data.ingestionStatus,
+        companies: response.data.companies.map((company) => ({
+            id: company.id.toString(),
+            companyName: company.companyName,
+        })),
+    };
 };
 
 export const useUpdateConversation = () => {
@@ -39,4 +70,3 @@ export const useUpdateConversation = () => {
         },
     });
 };
-

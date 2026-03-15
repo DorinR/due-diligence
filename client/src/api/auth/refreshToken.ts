@@ -1,18 +1,55 @@
 import { useQuery } from "@tanstack/react-query";
-import { AuthResponse } from "../../types/auth";
 import { getRefreshToken } from "../../utils/tokenManager";
 import { backendAccessPoint } from "../backendAccessPoint";
+import { LoginResponse } from "./login";
 
-export const refreshToken = async (): Promise<AuthResponse> => {
+type RefreshTokenRequestDto = {
+    RefreshToken: string;
+};
+
+type RefreshTokenResponseDto = {
+    success: boolean;
+    message: string;
+    user?: {
+        id: number;
+        email: string;
+        firstName?: string;
+        lastName?: string;
+    };
+    accessToken?: string;
+    refreshToken?: string;
+};
+
+export type RefreshTokenResponse = LoginResponse;
+
+export const refreshToken = async (): Promise<RefreshTokenResponse> => {
     const refreshTokenValue = getRefreshToken();
     if (!refreshTokenValue) {
         throw new Error("No refresh token available");
     }
 
-    const response = await backendAccessPoint.post<AuthResponse>("/api/auth/refresh-token", {
+    const payload: RefreshTokenRequestDto = {
         RefreshToken: refreshTokenValue,
-    });
-    return response.data;
+    };
+
+    const response = await backendAccessPoint.post<RefreshTokenResponseDto>(
+        "/api/auth/refresh-token",
+        payload
+    );
+    return {
+        success: response.data.success,
+        message: response.data.message,
+        user: response.data.user
+            ? {
+                  id: response.data.user.id,
+                  email: response.data.user.email,
+                  firstName: response.data.user.firstName,
+                  lastName: response.data.user.lastName,
+              }
+            : undefined,
+        accessToken: response.data.accessToken,
+        refreshToken: response.data.refreshToken,
+    };
 };
 
 export const useRefreshToken = () => {
@@ -28,4 +65,3 @@ export const useRefreshToken = () => {
         enabled: !!getRefreshToken(),
     });
 };
-

@@ -1,8 +1,8 @@
 import { Send } from "lucide-react";
-import { ReactNode, useState } from "react";
+import { ComponentPropsWithoutRef, ReactNode, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { DocumentSource } from "../api/message/types";
+import { DocumentSource } from "../api/message/getMessageListByConversation";
 import { SourceCitations } from "./SourceCitations";
 import { Button } from "./ui/button/Button";
 
@@ -23,6 +23,10 @@ type ChatInterfaceProps = {
     conversationType?: string;
     inputDisabled?: boolean;
     showEmptyState?: boolean;
+};
+
+type MarkdownCodeProps = ComponentPropsWithoutRef<"code"> & {
+    inline?: boolean;
 };
 
 export function ChatInterface({
@@ -158,7 +162,7 @@ export function ChatInterface({
                                               code: ({
                                                   inline,
                                                   ...props
-                                              }: any) =>
+                                              }: MarkdownCodeProps) =>
                                                   inline ? (
                                                       <code
                                                           className="rounded bg-gray-200 px-1.5 py-0.5 font-mono text-sm"

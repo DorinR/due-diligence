@@ -48,7 +48,7 @@ export type ConversationMessage = {
     sources?: DocumentSource[];
 };
 
-export type ConversationWithDetails = {
+export type GetConversationByIdResponse = {
     id: string;
     title: string;
     createdAt: string;
@@ -59,7 +59,7 @@ export type ConversationWithDetails = {
     messages: ConversationMessage[];
 };
 
-type ConversationWithDetailsFromServer = {
+type GetConversationByIdResponseDto = {
     id: string;
     title: string;
     createdAt: string;
@@ -82,16 +82,16 @@ type ConversationWithDetailsFromServer = {
         role: "User" | "Assistant" | "System";
         content: string;
         timestamp: string;
-        metadata: any | null;
+        metadata: unknown | null;
         sources?: DocumentSource[];
     }>;
 };
 
 export const getConversationById = async (
     conversationId: string,
-): Promise<ConversationWithDetails> => {
+): Promise<GetConversationByIdResponse> => {
     const response =
-        await backendAccessPoint.get<ConversationWithDetailsFromServer>(
+        await backendAccessPoint.get<GetConversationByIdResponseDto>(
             `/api/conversation/${conversationId}`,
         );
 

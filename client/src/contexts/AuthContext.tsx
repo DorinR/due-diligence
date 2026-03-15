@@ -3,12 +3,13 @@ import { useLogout } from "@/api/auth/logout";
 import { useRefreshToken } from "@/api/auth/refreshToken";
 import { useRegister } from "@/api/auth/register";
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { LoginRequest, RegisterRequest, User } from "../types/auth";
+import { AuthUser, LoginRequest } from "../api/auth/login";
+import { RegisterRequest } from "../api/auth/register";
 import { clearTokens, hasValidToken, setTokens } from "../utils/tokenManager";
 
 type AuthContextType = {
     isAuthenticated: boolean;
-    user: User | null;
+    user: AuthUser | null;
     login: (data: LoginRequest) => Promise<void>;
     register: (data: RegisterRequest) => Promise<void>;
     logout: () => Promise<void>;
@@ -28,7 +29,7 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     children,
 }) => {
-    const [user, setUser] = useState<User | null>(null);
+    const [user, setUser] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState(true);
 
     const loginMutation = useLogin();

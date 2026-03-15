@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { backendAccessPoint } from "../backendAccessPoint";
 import { IngestionStatus } from "./getConversationById";
 
-type ConversationFromServer = {
+type ConversationSummaryDto = {
     id: string;
     title: string;
     createdAt: string;
@@ -19,7 +19,7 @@ export type ConversationCompany = {
     companyName: string;
 };
 
-export type Conversation = {
+export type ConversationSummary = {
     id: string;
     title: string;
     createdAt: string;
@@ -28,20 +28,22 @@ export type Conversation = {
     companies: ConversationCompany[];
 };
 
-export const getConversationList = async (): Promise<Conversation[]> => {
+export type GetConversationListResponse = ConversationSummary[];
+
+export const getConversationList = async (): Promise<GetConversationListResponse> => {
     const response =
-        await backendAccessPoint.get<Array<ConversationFromServer>>(
+        await backendAccessPoint.get<Array<ConversationSummaryDto>>(
             "/api/conversation",
         );
-    return response.data.map((conv) => ({
-        id: conv.id,
-        title: conv.title,
-        createdAt: conv.createdAt,
-        updatedAt: conv.updatedAt,
-        ingestionStatus: conv.ingestionStatus,
-        companies: conv.companies.map<ConversationCompany>((c) => ({
-            id: c.id.toString(),
-            companyName: c.companyName,
+    return response.data.map((conversation) => ({
+        id: conversation.id,
+        title: conversation.title,
+        createdAt: conversation.createdAt,
+        updatedAt: conversation.updatedAt,
+        ingestionStatus: conversation.ingestionStatus,
+        companies: conversation.companies.map<ConversationCompany>((company) => ({
+            id: company.id.toString(),
+            companyName: company.companyName,
         })),
     }));
 };

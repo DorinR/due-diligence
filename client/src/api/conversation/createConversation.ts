@@ -1,19 +1,50 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { backendAccessPoint } from "../backendAccessPoint";
-import { Conversation } from "./getConversationList";
+import { ConversationSummary } from "./getConversationList";
+
+type CreateConversationRequestDto = {
+    title?: string;
+};
+
+type CreateConversationResponseDto = {
+    id: string;
+    title: string;
+    createdAt: string;
+    updatedAt: string;
+    ingestionStatus: import("./getConversationById").IngestionStatus | null;
+    companies: Array<{
+        id: number | string;
+        companyName: string;
+    }>;
+};
 
 export type CreateConversationRequest = {
     title?: string;
 };
 
+export type CreateConversationResponse = ConversationSummary;
+
 export const createConversation = async (
     data: CreateConversationRequest = {}
-): Promise<Conversation> => {
-    const response = await backendAccessPoint.post<Conversation>(
+): Promise<CreateConversationResponse> => {
+    const payload: CreateConversationRequestDto = {
+        title: data.title,
+    };
+    const response = await backendAccessPoint.post<CreateConversationResponseDto>(
         "/api/conversation",
-        data
+        payload
     );
-    return response.data;
+    return {
+        id: response.data.id,
+        title: response.data.title,
+        createdAt: response.data.createdAt,
+        updatedAt: response.data.updatedAt,
+        ingestionStatus: response.data.ingestionStatus,
+        companies: response.data.companies.map((company) => ({
+            id: company.id.toString(),
+            companyName: company.companyName,
+        })),
+    };
 };
 
 export const useCreateConversation = () => {

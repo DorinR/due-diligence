@@ -29,11 +29,10 @@ export function FileDropzone({ onFilesDrop, conversationId }: FileDropzoneProps)
                 const uploadPromises = acceptedFiles.map(
                     file =>
                         new Promise((resolve, reject) => {
-                            const uploadParams = conversationId
-                                ? { conversationId, file }
-                                : ({ file } as any); // Backward compatibility
-
-                            uploadDocument(uploadParams, {
+                            uploadDocument({
+                                conversationId,
+                                file,
+                            }, {
                                 onSuccess: () => resolve(file),
                                 onError: error => reject(error),
                             });

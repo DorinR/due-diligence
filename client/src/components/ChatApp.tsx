@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useGetConversationQueryList } from '../api/chat/getConversationQueryList';
-import { DocumentResponse } from '../api/document/types';
-import { useGetDocumentList } from '../api/document/getDocumentList';
+import { Document, useGetDocumentList } from '../api/document/getDocumentList';
 import { ChatInterface, Message } from './ChatInterface';
 import { Conversation, ConversationsList } from './ConversationsList';
-import { Document } from './DocumentList';
+import { Document as UIDocument } from './DocumentList';
 import { FileDropzone } from './FileDropzone';
 
 // Helper function to generate a unique ID
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 export function ChatApp() {
-    const [, setDocuments] = useState<Document[]>([]);
+    const [, setDocuments] = useState<UIDocument[]>([]);
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [messages, setMessages] = useState<Message[]>([]);
     const [hasUploadedFiles, setHasUploadedFiles] = useState(false);
@@ -25,7 +24,7 @@ export function ChatApp() {
     const { data: serverDocuments, isLoading: isLoadingDocuments } = useGetDocumentList();
 
     // Format server documents to match our UI model
-    const formatServerDocument = useCallback((doc: DocumentResponse): Document => {
+    const formatServerDocument = useCallback((doc: Document): UIDocument => {
         const sizeInMb = (doc.fileSize / (1024 * 1024)).toFixed(1);
         const date = new Date(doc.uploadedAt).toLocaleDateString();
 

@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react';
-import { DocumentSource } from '../api/message/types';
+import { DocumentSource } from '../api/message/getMessageListByConversation';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card';
 
 type SourceCitationsProps = {

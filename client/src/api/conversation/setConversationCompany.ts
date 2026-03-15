@@ -1,6 +1,22 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { backendAccessPoint } from "../backendAccessPoint";
 
+type SetConversationCompanyRequestDto = {
+    conversationId: number;
+    companyName: string;
+};
+
+type SetConversationCompanyResponseDto = {
+    id: string;
+    title: string;
+    companies: Array<{
+        id: number | string;
+        companyName: string;
+    }>;
+    createdAt: string;
+    updatedAt: string;
+};
+
 export type SetConversationCompanyRequest = {
     conversationId: string;
     companyName: string;
@@ -23,15 +39,25 @@ export type SetConversationCompanyResponse = {
 export const setConversationCompany = async (
     data: SetConversationCompanyRequest
 ): Promise<SetConversationCompanyResponse> => {
-    const response = await backendAccessPoint.post<SetConversationCompanyResponse>(
+    const payload: SetConversationCompanyRequestDto = {
+        conversationId: Number(data.conversationId),
+        companyName: data.companyName,
+    };
+    const response = await backendAccessPoint.post<SetConversationCompanyResponseDto>(
         "/api/conversation/company",
-        {
-            conversationId: Number(data.conversationId),
-            companyName: data.companyName,
-        }
+        payload
     );
 
-    return response.data;
+    return {
+        id: response.data.id,
+        title: response.data.title,
+        companies: response.data.companies.map((company) => ({
+            id: company.id.toString(),
+            companyName: company.companyName,
+        })),
+        createdAt: response.data.createdAt,
+        updatedAt: response.data.updatedAt,
+    };
 };
 
 export const useSetConversationCompany = () => {
@@ -50,4 +76,3 @@ export const useSetConversationCompany = () => {
         },
     });
 };
-

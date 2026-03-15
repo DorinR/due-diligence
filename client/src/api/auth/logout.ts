@@ -2,10 +2,17 @@ import { useMutation } from "@tanstack/react-query";
 import { clearTokens, getRefreshToken } from "../../utils/tokenManager";
 import { backendAccessPoint } from "../backendAccessPoint";
 
+type LogoutRequestDto = {
+    RefreshToken: string;
+};
+
 export const logout = async (): Promise<void> => {
     const refreshToken = getRefreshToken();
     if (refreshToken) {
-        await backendAccessPoint.post("/api/auth/revoke-token", { RefreshToken: refreshToken });
+        const payload: LogoutRequestDto = {
+            RefreshToken: refreshToken,
+        };
+        await backendAccessPoint.post("/api/auth/revoke-token", payload);
     }
     clearTokens();
 };
@@ -18,4 +25,3 @@ export const useLogout = () => {
         },
     });
 };
-

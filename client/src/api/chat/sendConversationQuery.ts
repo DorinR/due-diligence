@@ -10,7 +10,27 @@ export type DocumentSource = {
     chunksUsed: number;
 };
 
-export type ConversationQueryRequest = {
+type ConversationQueryRequestDto = {
+    query: string;
+    conversationId: string;
+    limit?: number;
+};
+
+type ConversationQueryResponseDto = {
+    originalQuery: string;
+    processedQuery: string;
+    conversationId: number;
+    llmResponse: string;
+    retrievedChunks: RetrievedChunk[];
+    intent: QueryIntent;
+    intentReasoning: string;
+    retrievalConfig: RetrievalConfig;
+    sources: DocumentSource[];
+    totalChunks: number;
+    uniqueDocuments: number;
+};
+
+export type SendConversationQueryRequest = {
     query: string;
     conversationId: string;
     limit?: number;
@@ -35,7 +55,7 @@ export type RetrievedChunk = {
     similarity: number;
 };
 
-export type ConversationQueryResponse = {
+export type SendConversationQueryResponse = {
     originalQuery: string;
     processedQuery: string;
     conversationId: number;
@@ -50,13 +70,31 @@ export type ConversationQueryResponse = {
 };
 
 export const sendConversationQuery = async (
-    request: ConversationQueryRequest
-): Promise<ConversationQueryResponse> => {
-    const response = await backendAccessPoint.post<ConversationQueryResponse>(
+    request: SendConversationQueryRequest
+): Promise<SendConversationQueryResponse> => {
+    const payload: ConversationQueryRequestDto = {
+        query: request.query,
+        conversationId: request.conversationId,
+        limit: request.limit,
+    };
+
+    const response = await backendAccessPoint.post<ConversationQueryResponseDto>(
         "/api/query/query",
-        request
+        payload
     );
-    return response.data;
+    return {
+        originalQuery: response.data.originalQuery,
+        processedQuery: response.data.processedQuery,
+        conversationId: response.data.conversationId,
+        llmResponse: response.data.llmResponse,
+        retrievedChunks: response.data.retrievedChunks,
+        intent: response.data.intent,
+        intentReasoning: response.data.intentReasoning,
+        retrievalConfig: response.data.retrievalConfig,
+        sources: response.data.sources,
+        totalChunks: response.data.totalChunks,
+        uniqueDocuments: response.data.uniqueDocuments,
+    };
 };
 
 export const useSendConversationQuery = () => {

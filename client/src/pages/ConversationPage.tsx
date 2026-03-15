@@ -5,8 +5,8 @@ import { Navigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useGetConversationById } from "../api/conversation/getConversationById";
 import { useSetConversationCompany } from "../api/conversation/setConversationCompany";
-import { useSendMessage } from "../api/message/sendMessage";
-import { ConversationMessage, MessageRole } from "../api/message/types";
+import { ConversationMessage } from "../api/message/getMessageListByConversation";
+import { MessageRole, useSendMessage } from "../api/message/sendMessage";
 import { ChatInterface, Message } from "../components/ChatInterface";
 import { Button } from "../components/ui/button/Button";
 

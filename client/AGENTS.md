@@ -60,22 +60,86 @@ export function ConversationsList({
 
 **Do not reach for global state by default.** Prefer local component state (`useState`) or React Query. Only promote to Jotai when state must be shared across distant components and prop-drilling or context becomes unwieldy.
 
-## API Layer (Two-Layer Pattern)
+## API Layer (Endpoint Colocation Pattern)
 
-The data-fetching architecture is split into two layers with distinct responsibilities:
+The data-fetching architecture is organized by endpoint. Each endpoint gets a single file in `api/` that contains the full client contract for that endpoint:
 
-### Layer 1: `api/` — Raw API Functions
+1. Endpoint-specific types.
+2. The raw API function that calls the backend via the shared Axios instance (`backendAccessPoint`).
+3. The React Query hook that wraps the raw API function.
 
-These files live in `api/` and are responsible for:
+This is a colocated design, not a physically separate `api/` and `apiHooks/` split. The separation is by responsibility within the file, not by folder:
 
-1. Calling the backend via the shared Axios instance (`backendAccessPoint`).
-2. Defining **two types**: the raw backend response shape and the cleaned frontend shape.
-3. **Mapping** from the backend response to the frontend type.
+- Types define the request/response contract for the endpoint.
+- The raw API function performs the network call and maps backend data into clean frontend data.
+- The hook owns caching behavior: query keys, stale times, invalidation, optimistic updates.
+
+The goal is to keep all endpoint-specific logic in one place so a change to a backend contract usually requires editing one file instead of several.
+
+### Endpoint File Structure
+
+Each endpoint file in `api/` is responsible for:
+
+1. Defining the raw backend wire types and the cleaned frontend types.
+2. **Mapping** from the backend response to the frontend type.
+3. Exporting the plain async API function.
+4. Exporting the React Query hook for that endpoint.
+
+### Type Naming Convention
+
+Use explicit suffixes so the backend boundary is obvious at a glance:
+
+- `Dto` suffix for the exact wire format that matches the backend model.
+- `Request` suffix for the input your app passes to the exported API function.
+- `Response` suffix for the value your app gets back from the exported API function.
+
+### `type` vs `interface`
+
+In the API layer, prefer `type` aliases by default. DTOs, request shapes, response shapes, and mapped frontend contracts should all use `type`, not `interface`.
+
+Use `interface` only when you specifically need interface behavior such as declaration merging or intentional extension across module boundaries. That is uncommon in this codebase's API layer.
+
+Preferred:
+
+- `type LoginRequestDto = { ... }`
+- `type LoginResponse = { ... }`
+- `type DocumentSource = { ... }`
+
+Avoid:
+
+- `interface LoginRequestDto { ... }`
+- `interface LoginResponse { ... }`
+
+The goal is to keep the API layer consistent and optimized for data-shape modeling rather than extensible object contracts.
+
+Examples:
+
+- `LoginRequestDto` and `LoginResponseDto` are backend-facing wire types.
+- `LoginRequest` and `LoginResponse` are frontend-facing API contract types.
+
+If the backend shape and frontend shape happen to be identical today, still keep the `Dto` type separate when the boundary matters. That gives you a stable place to absorb backend drift later without changing components.
+
+Domain helper types that are nested inside a response can use normal descriptive names without a suffix (`ConversationSummary`, `AuthUser`, `DocumentSource`), but the exported function boundary should use `Request` and `Response` names.
+
+### Mapping Style
+
+Keep endpoint DTO mapping inline inside the API function. Do not extract a separate `mapFooDto` helper unless the mapping is genuinely complex and reused.
+
+Preferred:
+
+- Build the request DTO inline before the network call.
+- Always assign it to a `const payload: SomeRequestDto = { ... }` variable before calling Axios.
+- Return the mapped frontend shape inline from the API function.
+
+Avoid:
+
+- Small one-off mapping helpers like `mapLoginResponseDto` or `mapDocumentDto`.
+- Passing app-facing request objects directly into Axios when the endpoint has a request body.
 
 ```tsx
 // api/conversation/getConversationList.ts
 
-type ConversationFromServer = {
+type ConversationDto = {
     id: string;
     title: string;
     createdAt: string;
@@ -84,9 +148,9 @@ type ConversationFromServer = {
         id: number;
         companyName: string;
     }>;
-}
+};
 
-export type Conversation = {
+export type ConversationSummary = {
     id: string;
     title: string;
     createdAt: string;
@@ -95,10 +159,12 @@ export type Conversation = {
         id: string;
         companyName: string;
     }>;
-}
+};
 
-export const getConversationList = async (): Promise<Conversation[]> => {
-    const response = await backendAccessPoint.get<ConversationFromServer[]>(
+export type GetConversationListResponse = ConversationSummary[];
+
+export const getConversationList = async (): Promise<GetConversationListResponse> => {
+    const response = await backendAccessPoint.get<ConversationDto[]>(
         "/api/conversation",
     );
 
@@ -115,13 +181,11 @@ export const getConversationList = async (): Promise<Conversation[]> => {
 };
 ```
 
-The backend response type is **not exported** — it is an implementation detail. Only the clean frontend type is exported.
+DTO types are implementation details and should usually stay unexported. Export the app-facing `Request` and `Response` types, plus any small domain helper types the UI needs.
 
-### Layer 2: React Query Wrappers
+The React Query hook for the same endpoint lives in the same file and is responsible for:
 
-These files live alongside the API functions in `api/` and are responsible for:
-
-1. Wrapping the `api/` functions with React Query (`useQuery`, `useMutation`).
+1. Wrapping the raw API function with React Query (`useQuery`, `useMutation`).
 2. Managing **caching logic**: query keys, stale times, invalidation.
 3. Exposing a clean hook API to components.
 
@@ -131,7 +195,56 @@ For **mutations**, the hook returns a named function ending in `Async`:
 // api/message/sendMessage.ts
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { sendMessage } from "./sendMessage";
+import { backendAccessPoint } from "../backendAccessPoint";
+ 
+type SendMessageRequestDto = {
+    content: string;
+    role: number;
+};
+
+type SendMessageResponseDto = {
+    id: string;
+    text: string;
+    role: "User" | "Assistant" | "System";
+    timestamp: string;
+    conversationId: string;
+};
+
+export type SendMessageRequest = {
+    content: string;
+    role: MessageRole;
+};
+
+export type SendMessageResponse = {
+    id: string;
+    text: string;
+    role: "User" | "Assistant" | "System";
+    timestamp: string;
+    conversationId: string;
+};
+
+export const sendMessage = async (
+    conversationId: string,
+    data: SendMessageRequest
+): Promise<SendMessageResponse> => {
+    const payload: SendMessageRequestDto = {
+        content: data.content,
+        role: data.role,
+    };
+
+    const response = await backendAccessPoint.post<SendMessageResponseDto>(
+        `/api/conversations/${conversationId}/message`,
+        payload
+    );
+
+    return {
+        id: response.data.id,
+        text: response.data.text,
+        role: response.data.role,
+        timestamp: response.data.timestamp,
+        conversationId: response.data.conversationId,
+    };
+};
 
 export const useSendMessage = () => {
     const queryClient = useQueryClient();
@@ -162,7 +275,32 @@ For **queries**, the hook returns the standard React Query result:
 // api/message/getMessageListByConversation.ts
 
 import { useQuery } from "@tanstack/react-query";
-import { getMessageListByConversation } from "./getMessageListByConversation";
+import { backendAccessPoint } from "../backendAccessPoint";
+
+type MessageFromServer = {
+    id: string;
+    text: string;
+};
+
+export type Message = {
+    id: string;
+    text: string;
+};
+
+export type GetMessageListByConversationResponse = Message[];
+
+export const getMessageListByConversation = async (
+    conversationId: string
+): Promise<GetMessageListByConversationResponse> => {
+    const response = await backendAccessPoint.get<MessageFromServer[]>(
+        `/api/conversations/${conversationId}/message`
+    );
+
+    return response.data.map((message) => ({
+        id: message.id,
+        text: message.text,
+    }));
+};
 
 export const useGetMessageListByConversation = (conversationId: string) => {
     return useQuery({
@@ -175,8 +313,15 @@ export const useGetMessageListByConversation = (conversationId: string) => {
 
 **Key rules:**
 
-- `api/` functions know nothing about React Query. They are plain async functions.
-- React Query hooks live alongside the API functions and only orchestrate caching.
+- One endpoint file should contain the endpoint's exported frontend types, raw API function, and React Query hook.
+- `api/` functions know nothing about React Query. They are plain async functions and must remain usable without hooks.
+- React Query hooks live in the same file as the API function and only orchestrate caching.
+- Backend wire types use the `Dto` suffix.
+- Exported function boundary types use `Request` and `Response` suffixes.
+- Use `type` aliases by default in the API layer.
+- For request bodies, always create a typed `payload` variable using the endpoint's `RequestDto` type before the Axios call.
+- Keep DTO-to-frontend mapping inline in the API function by default.
+- Keep the file scoped to one endpoint or one endpoint action. Do not turn a domain folder into a dumping ground.
 - Mutation hooks return `{ verbNounAsync: mutateAsync, isPending }`.
 - Query hook names start with `useGet`.
 
@@ -203,8 +348,12 @@ Beyond these, lean toward shipping. If a lint rule is blocking you from deliveri
 **Do:**
 
 - Use React Query for all server state.
-- Map backend responses to clean frontend types in the `api/` layer.
-- Keep `apiHooks/` thin — caching logic only.
+- Keep endpoint-specific types, raw API functions, and React Query hooks in the same `api/` file.
+- Use `Dto` suffixes for backend wire shapes and `Request`/`Response` suffixes for the exported API contract.
+- Use `type` aliases for DTOs, request/response types, and domain helper shapes in the API layer.
+- Map backend responses to clean frontend types in the raw API function.
+- Build request bodies through a typed `payload` object before calling Axios.
+- Prefer inline mapping in the API function over tiny standalone mapper helpers.
 - Use Tailwind for all styling.
 - Use `const` by default, `let` only when needed.
 - Use strict TypeScript — no `any`, no `as` casts unless absolutely necessary.
@@ -213,8 +362,12 @@ Beyond these, lean toward shipping. If a lint rule is blocking you from deliveri
 **Don't:**
 
 - Don't use class components.
-- Don't export backend response types from `api/` files.
-- Don't put Axios calls or response mapping in `apiHooks/`.
+- Don't export backend DTO types from `api/` files unless another endpoint in the same feature genuinely needs them.
+- Don't split one endpoint across separate `api/`, `types`, and `apiHooks` files unless the file has clearly outgrown endpoint-level colocation.
+- Don't put Axios calls or response mapping inside components.
+- Don't create one-off `mapXDto` helpers for simple endpoint mapping.
+- Don't use `interface` in the API layer unless you specifically need declaration merging or cross-module extension.
+- Don't pass request bodies directly to Axios without first assigning a typed `payload` DTO.
 - Don't use global state (Jotai) when local state or React Query suffices.
 - Don't use CSS modules, styled-components, or inline styles.
 - Don't use `<>` shorthand — use `<Fragment>`.
