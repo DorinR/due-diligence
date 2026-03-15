@@ -242,3 +242,4 @@ Training/
 
 # MD files
 *.md
+!client/AGENTS.md
