@@ -1,45 +1,20 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Pgvector;
 
 #nullable disable
 
 namespace rag_experiment.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialMigration : Migration
+    public partial class InitialSchema : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.CreateTable(
-                name: "ExperimentResults",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Timestamp = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    ExperimentName = table.Column<string>(type: "text", nullable: false),
-                    Description = table.Column<string>(type: "text", nullable: false),
-                    EmbeddingModelName = table.Column<string>(type: "text", nullable: false),
-                    EmbeddingDimension = table.Column<int>(type: "integer", nullable: false),
-                    ChunkSize = table.Column<int>(type: "integer", nullable: false),
-                    ChunkOverlap = table.Column<int>(type: "integer", nullable: false),
-                    StopwordRemoval = table.Column<bool>(type: "boolean", nullable: false),
-                    Stemming = table.Column<bool>(type: "boolean", nullable: false),
-                    Lemmatization = table.Column<bool>(type: "boolean", nullable: false),
-                    QueryExpansion = table.Column<bool>(type: "boolean", nullable: false),
-                    TopK = table.Column<int>(type: "integer", nullable: false),
-                    AveragePrecision = table.Column<double>(type: "double precision", nullable: false),
-                    AverageRecall = table.Column<double>(type: "double precision", nullable: false),
-                    AverageF1Score = table.Column<double>(type: "double precision", nullable: false),
-                    DetailedResults = table.Column<string>(type: "text", nullable: false),
-                    Notes = table.Column<string>(type: "text", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_ExperimentResults", x => x.Id);
-                });
+            migrationBuilder.AlterDatabase()
+                .Annotation("Npgsql:PostgresExtension:vector", ",,");
 
             migrationBuilder.CreateTable(
                 name: "Users",
@@ -68,6 +43,7 @@ namespace rag_experiment.Migrations
                     Title = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    IngestionStatus = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     UserId = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
@@ -107,6 +83,27 @@ namespace rag_experiment.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ConversationCompanies",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    CompanyName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Ticker = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    ConversationId = table.Column<int>(type: "integer", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ConversationCompanies", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ConversationCompanies_Conversations_ConversationId",
+                        column: x => x.ConversationId,
+                        principalTable: "Conversations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Documents",
                 columns: table => new
                 {
@@ -119,7 +116,11 @@ namespace rag_experiment.Migrations
                     FilePath = table.Column<string>(type: "text", nullable: false),
                     UploadedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     Description = table.Column<string>(type: "text", nullable: false),
-                    ConversationId = table.Column<int>(type: "integer", nullable: false)
+                    Title = table.Column<string>(type: "text", nullable: true),
+                    DocumentLink = table.Column<string>(type: "text", nullable: true),
+                    DocumentText = table.Column<string>(type: "text", nullable: true),
+                    TrainingFolderName = table.Column<string>(type: "text", nullable: true),
+                    ConversationId = table.Column<int>(type: "integer", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -129,7 +130,7 @@ namespace rag_experiment.Migrations
                         column: x => x.ConversationId,
                         principalTable: "Conversations",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -139,11 +140,15 @@ namespace rag_experiment.Migrations
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Text = table.Column<string>(type: "text", nullable: false),
-                    EmbeddingData = table.Column<byte[]>(type: "bytea", nullable: false),
+                    EmbeddingData = table.Column<Vector>(type: "vector(1536)", nullable: false),
                     DocumentId = table.Column<string>(type: "text", nullable: false),
                     DocumentTitle = table.Column<string>(type: "text", nullable: false),
-                    UserId = table.Column<int>(type: "integer", nullable: false),
-                    ConversationId = table.Column<int>(type: "integer", nullable: false)
+                    ChunkIndex = table.Column<int>(type: "integer", nullable: false),
+                    ChunkHash = table.Column<byte[]>(type: "bytea", nullable: false),
+                    Owner = table.Column<int>(type: "integer", nullable: false),
+                    TrainingFolderName = table.Column<string>(type: "text", nullable: true),
+                    UserId = table.Column<int>(type: "integer", nullable: true),
+                    ConversationId = table.Column<int>(type: "integer", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -153,13 +158,13 @@ namespace rag_experiment.Migrations
                         column: x => x.ConversationId,
                         principalTable: "Conversations",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_Embeddings_Users_UserId",
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -185,6 +190,40 @@ namespace rag_experiment.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "MessageSources",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    MessageId = table.Column<int>(type: "integer", nullable: false),
+                    DocumentId = table.Column<int>(type: "integer", nullable: false),
+                    RelevanceScore = table.Column<float>(type: "real", nullable: false),
+                    ChunksUsed = table.Column<int>(type: "integer", nullable: false),
+                    Order = table.Column<int>(type: "integer", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_MessageSources", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_MessageSources_Documents_DocumentId",
+                        column: x => x.DocumentId,
+                        principalTable: "Documents",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_MessageSources_Messages_MessageId",
+                        column: x => x.MessageId,
+                        principalTable: "Messages",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ConversationCompanies_ConversationId",
+                table: "ConversationCompanies",
+                column: "ConversationId");
+
             migrationBuilder.CreateIndex(
                 name: "IX_Conversations_UserId",
                 table: "Conversations",
@@ -201,14 +240,32 @@ namespace rag_experiment.Migrations
                 column: "ConversationId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Embeddings_UserId",
+                name: "IX_Embeddings_EmbeddingData",
                 table: "Embeddings",
-                column: "UserId");
+                column: "EmbeddingData")
+                .Annotation("Npgsql:IndexMethod", "hnsw")
+                .Annotation("Npgsql:IndexOperators", new[] { "vector_cosine_ops" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Embeddings_UserId_ConversationId_DocumentId_ChunkIndex",
+                table: "Embeddings",
+                columns: new[] { "UserId", "ConversationId", "DocumentId", "ChunkIndex" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Messages_ConversationId",
                 table: "Messages",
                 column: "ConversationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MessageSources_DocumentId",
+                table: "MessageSources",
+                column: "DocumentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MessageSources_MessageId",
+                table: "MessageSources",
+                column: "MessageId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_RefreshTokens_UserId",
@@ -226,19 +283,22 @@ namespace rag_experiment.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "Documents");
+                name: "ConversationCompanies");
 
             migrationBuilder.DropTable(
                 name: "Embeddings");
 
             migrationBuilder.DropTable(
-                name: "ExperimentResults");
-
-            migrationBuilder.DropTable(
-                name: "Messages");
+                name: "MessageSources");
 
             migrationBuilder.DropTable(
                 name: "RefreshTokens");
+
+            migrationBuilder.DropTable(
+                name: "Documents");
+
+            migrationBuilder.DropTable(
+                name: "Messages");
 
             migrationBuilder.DropTable(
                 name: "Conversations");

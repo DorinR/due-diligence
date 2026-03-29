@@ -15,6 +15,7 @@ type UpdateConversationResponseDto = {
     companies: Array<{
         id: number | string;
         companyName: string;
+        ticker: string;
     }>;
 };
 
@@ -44,6 +45,7 @@ export const updateConversation = async (
         companies: response.data.companies.map((company) => ({
             id: company.id.toString(),
             companyName: company.companyName,
+            ticker: company.ticker,
         })),
     };
 };

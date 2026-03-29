@@ -73,6 +73,11 @@ namespace rag_experiment.Migrations
                     b.Property<int>("ConversationId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Ticker")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ConversationId");

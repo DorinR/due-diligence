@@ -13,6 +13,7 @@ export type DocumentSource = {
 export type ConversationCompany = {
     id: string;
     companyName: string;
+    ticker: string;
 };
 
 /**
@@ -68,6 +69,7 @@ type GetConversationByIdResponseDto = {
     companies: Array<{
         id: number;
         companyName: string;
+        ticker: string;
     }>;
     documents: Array<{
         id: number;
@@ -106,6 +108,7 @@ export const getConversationById = async (
         companies: serverData.companies.map((c) => ({
             id: c.id.toString(),
             companyName: c.companyName,
+            ticker: c.ticker ?? "",
         })),
         documents: serverData.documents.map((doc) => ({
             id: doc.id.toString(),

@@ -18,10 +18,16 @@ namespace rag_experiment.Domain
         public string CompanyName { get; set; }
 
         /// <summary>
+        /// The trading ticker for the company, if known.
+        /// </summary>
+        [Required]
+        [MaxLength(20)]
+        public string Ticker { get; set; } = string.Empty;
+
+        /// <summary>
         /// The conversation this company is associated with
         /// </summary>
         public int ConversationId { get; set; }
         public Conversation Conversation { get; set; }
     }
 }
-

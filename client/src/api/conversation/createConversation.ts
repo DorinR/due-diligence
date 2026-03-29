@@ -15,6 +15,7 @@ type CreateConversationResponseDto = {
     companies: Array<{
         id: number | string;
         companyName: string;
+        ticker: string;
     }>;
 };
 
@@ -43,6 +44,7 @@ export const createConversation = async (
         companies: response.data.companies.map((company) => ({
             id: company.id.toString(),
             companyName: company.companyName,
+            ticker: company.ticker,
         })),
     };
 };

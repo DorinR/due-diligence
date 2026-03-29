@@ -11,12 +11,14 @@ type ConversationSummaryDto = {
     companies: Array<{
         id: number;
         companyName: string;
+        ticker: string;
     }>;
 };
 
 export type ConversationCompany = {
     id: string;
     companyName: string;
+    ticker: string;
 };
 
 export type ConversationSummary = {
@@ -44,6 +46,7 @@ export const getConversationList = async (): Promise<GetConversationListResponse
         companies: conversation.companies.map<ConversationCompany>((company) => ({
             id: company.id.toString(),
             companyName: company.companyName,
+            ticker: company.ticker ?? "",
         })),
     }));
 };

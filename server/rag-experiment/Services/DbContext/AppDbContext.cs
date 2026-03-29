@@ -68,6 +68,7 @@ namespace rag_experiment.Services
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.CompanyName).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Ticker).IsRequired().HasMaxLength(20);
                 entity.HasOne(e => e.Conversation)
                     .WithMany(c => c.Companies)
                     .HasForeignKey(e => e.ConversationId)

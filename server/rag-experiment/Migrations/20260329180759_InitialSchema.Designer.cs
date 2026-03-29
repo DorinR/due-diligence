@@ -13,8 +13,8 @@ using rag_experiment.Services;
 namespace rag_experiment.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260106013104_AddIngestionStatusToConversation")]
-    partial class AddIngestionStatusToConversation
+    [Migration("20260329180759_InitialSchema")]
+    partial class InitialSchema
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -75,6 +75,11 @@ namespace rag_experiment.Migrations
 
                     b.Property<int>("ConversationId")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Ticker")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.HasKey("Id");
 

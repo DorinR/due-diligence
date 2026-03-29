@@ -65,7 +65,7 @@ public class ConversationController : ControllerBase
             {
                 id = conversation.Id,
                 title = conversation.Title,
-                companies = conversation.Companies.Select(c => new { c.Id, c.CompanyName }),
+                companies = conversation.Companies.Select(c => new { c.Id, c.CompanyName, c.Ticker }),
                 ingestionStatus = conversation.IngestionStatus,
                 createdAt = conversation.CreatedAt,
                 updatedAt = conversation.UpdatedAt
@@ -87,6 +87,8 @@ public class ConversationController : ControllerBase
         {
             if (request == null || string.IsNullOrWhiteSpace(request.CompanyName))
                 return BadRequest("Company name is required");
+            if (string.IsNullOrWhiteSpace(request.CompanyTicker))
+                return BadRequest("Company ticker is required");
             if (request.FilingTypes == null || request.FilingTypes.Count == 0)
                 return BadRequest("At least one filing type is required");
 
@@ -107,7 +109,11 @@ public class ConversationController : ControllerBase
                 : request.CompanyTicker;
 
             conversation.Companies.Clear();
-            conversation.Companies.Add(new ConversationCompany { CompanyName = request.CompanyName });
+            conversation.Companies.Add(new ConversationCompany
+            {
+                CompanyName = request.CompanyName,
+                Ticker = request.CompanyTicker.Trim()
+            });
             conversation.IngestionStatus = BatchProcessingStatus.Pending;
             conversation.UpdatedAt = DateTime.UtcNow;
 
@@ -123,7 +129,7 @@ public class ConversationController : ControllerBase
             {
                 conversation.Id,
                 conversation.Title,
-                Companies = conversation.Companies.Select(c => new { c.Id, c.CompanyName }),
+                Companies = conversation.Companies.Select(c => new { c.Id, c.CompanyName, c.Ticker }),
                 conversation.IngestionStatus,
                 conversation.CreatedAt,
                 conversation.UpdatedAt
@@ -149,7 +155,7 @@ public class ConversationController : ControllerBase
                 {
                     c.Id,
                     c.Title,
-                    Companies = c.Companies.Select(cc => new { cc.Id, cc.CompanyName }),
+                    Companies = c.Companies.Select(cc => new { cc.Id, cc.CompanyName, cc.Ticker }),
                     c.IngestionStatus,
                     c.CreatedAt,
                     c.UpdatedAt,
@@ -188,7 +194,7 @@ public class ConversationController : ControllerBase
             {
                 conversation.Id,
                 conversation.Title,
-                Companies = conversation.Companies.Select(c => new { c.Id, c.CompanyName }),
+                Companies = conversation.Companies.Select(c => new { c.Id, c.CompanyName, c.Ticker }),
                 conversation.IngestionStatus,
                 conversation.CreatedAt,
                 conversation.UpdatedAt,

@@ -74,6 +74,22 @@ export function ConversationSidebar() {
         }
     };
 
+    const getTickerLabel = (
+        companies: Array<{
+            ticker: string;
+        }>
+    ) => {
+        if (companies.length === 0) {
+            return 'No ticker';
+        }
+
+        const tickers = companies
+            .map(company => company.ticker.trim())
+            .filter((ticker): ticker is string => !!ticker);
+
+        return tickers.length > 0 ? tickers.join(', ') : 'No ticker';
+    };
+
     if (isLoading) {
         return (
             <div className="w-80 border-r border-gray-200 bg-white p-4">
@@ -139,6 +155,9 @@ export function ConversationSidebar() {
                                                 }`}
                                             >
                                                 {conversation.title}
+                                            </p>
+                                            <p className="truncate text-xs text-gray-600">
+                                                {getTickerLabel(conversation.companies)}
                                             </p>
                                             <p className="text-xs text-gray-500">
                                                 {formatDate(conversation.updatedAt)}

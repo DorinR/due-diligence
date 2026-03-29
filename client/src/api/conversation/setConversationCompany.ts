@@ -14,6 +14,7 @@ type SetConversationCompanyResponseDto = {
     companies: Array<{
         id: number | string;
         companyName: string;
+        ticker: string;
     }>;
     createdAt: string;
     updatedAt: string;
@@ -32,6 +33,7 @@ export type SetConversationCompanyResponse = {
     companies: Array<{
         id: string;
         companyName: string;
+        ticker: string;
     }>;
     createdAt: string;
     updatedAt: string;
@@ -60,6 +62,7 @@ export const setConversationCompany = async (
         companies: response.data.companies.map((company) => ({
             id: company.id.toString(),
             companyName: company.companyName,
+            ticker: company.ticker,
         })),
         createdAt: response.data.createdAt,
         updatedAt: response.data.updatedAt,
