@@ -31,7 +31,17 @@ namespace rag_experiment.Services
             // Process in batches
             for (var i = 0; i < chunksList.Count; i += _settings.MaxBatchSize)
             {
-                var batch = chunksList.Skip(i).Take(_settings.MaxBatchSize).ToList();
+                var batch = chunksList
+                    .Skip(i)
+                    .Take(_settings.MaxBatchSize)
+                    .Where(text => !string.IsNullOrWhiteSpace(text))
+                    .ToList();
+
+                if (batch.Count == 0)
+                {
+                    continue;
+                }
+
                 await WaitForRateLimit(batch);
 
                 var request = new
@@ -45,8 +55,13 @@ namespace rag_experiment.Services
                     new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json")
                 );
 
-                response.EnsureSuccessStatusCode();
                 var responseContent = await response.Content.ReadAsStringAsync();
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new InvalidOperationException(
+                        $"OpenAI embeddings request failed ({(int)response.StatusCode} {response.ReasonPhrase}): {responseContent}");
+                }
+
                 var embeddingResponse = JsonSerializer.Deserialize<EmbeddingResponse>(responseContent);
 
                 if (embeddingResponse?.Data == null || embeddingResponse.Usage == null)
@@ -69,6 +84,11 @@ namespace rag_experiment.Services
 
         public async Task<float[]> GenerateEmbeddingAsync(string text)
         {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                throw new ArgumentException("Embedding input cannot be null, empty, or whitespace.", nameof(text));
+            }
+
             var request = new
             {
                 model = _settings.ModelName,
@@ -80,8 +100,13 @@ namespace rag_experiment.Services
                 new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json")
             );
 
-            response.EnsureSuccessStatusCode();
             var responseContent = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException(
+                    $"OpenAI embeddings request failed ({(int)response.StatusCode} {response.ReasonPhrase}): {responseContent}");
+            }
+
             var embeddingResponse = JsonSerializer.Deserialize<EmbeddingResponse>(responseContent);
 
             if (embeddingResponse?.Data == null || embeddingResponse.Usage == null)

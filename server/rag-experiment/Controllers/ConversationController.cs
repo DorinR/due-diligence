@@ -87,6 +87,8 @@ public class ConversationController : ControllerBase
         {
             if (request == null || string.IsNullOrWhiteSpace(request.CompanyName))
                 return BadRequest("Company name is required");
+            if (request.FilingTypes == null || request.FilingTypes.Count == 0)
+                return BadRequest("At least one filing type is required");
 
             if (request.ConversationId <= 0)
                 return BadRequest("conversationId must be greater than zero");
@@ -100,6 +102,10 @@ public class ConversationController : ControllerBase
             if (conversation == null)
                 return NotFound("Conversation not found");
 
+            var companyIdentifier = string.IsNullOrWhiteSpace(request.CompanyTicker)
+                ? request.CompanyName
+                : request.CompanyTicker;
+
             conversation.Companies.Clear();
             conversation.Companies.Add(new ConversationCompany { CompanyName = request.CompanyName });
             conversation.IngestionStatus = BatchProcessingStatus.Pending;
@@ -107,13 +113,9 @@ public class ConversationController : ControllerBase
 
             await _dbContext.SaveChangesAsync();
 
-            var filingTypes = _filingOptions.DefaultFilingTypes ?? new List<string>();
-            if (filingTypes.Count == 0)
-                return StatusCode(500, "No default filing types configured for ingestion");
-
             await _documentProcessingJobService.SetupFilingIngestionPipeline(
-                request.CompanyName,
-                filingTypes,
+                companyIdentifier,
+                request.FilingTypes,
                 userId,
                 conversation.Id);
 
@@ -353,6 +355,16 @@ public class SetConversationCompanyRequest
     /// Company name to associate with the conversation.
     /// </summary>
     public string CompanyName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Ticker or other ingestion identifier used to download filings.
+    /// </summary>
+    public string? CompanyTicker { get; set; }
+
+    /// <summary>
+    /// Filing types the user selected for ingestion.
+    /// </summary>
+    public List<string> FilingTypes { get; set; } = new();
 }
 
 /// <summary>

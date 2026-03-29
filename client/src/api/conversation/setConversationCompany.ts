@@ -4,6 +4,8 @@ import { backendAccessPoint } from "../backendAccessPoint";
 type SetConversationCompanyRequestDto = {
     conversationId: number;
     companyName: string;
+    companyTicker?: string;
+    filingTypes: string[];
 };
 
 type SetConversationCompanyResponseDto = {
@@ -20,6 +22,8 @@ type SetConversationCompanyResponseDto = {
 export type SetConversationCompanyRequest = {
     conversationId: string;
     companyName: string;
+    companyTicker?: string;
+    filingTypes: string[];
 };
 
 export type SetConversationCompanyResponse = {
@@ -42,6 +46,8 @@ export const setConversationCompany = async (
     const payload: SetConversationCompanyRequestDto = {
         conversationId: Number(data.conversationId),
         companyName: data.companyName,
+        companyTicker: data.companyTicker,
+        filingTypes: data.filingTypes,
     };
     const response = await backendAccessPoint.post<SetConversationCompanyResponseDto>(
         "/api/conversation/company",

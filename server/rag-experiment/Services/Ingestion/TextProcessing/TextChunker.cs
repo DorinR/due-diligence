@@ -31,19 +31,24 @@ namespace rag_experiment.Services
 
             foreach (var sentence in sentences)
             {
-                // If adding this sentence would exceed maxChunkSize
-                if (currentLength + sentence.Length > maxChunkSize && currentChunk.Any())
+                var sentenceParts = SplitOversizedSegment(sentence, maxChunkSize);
+
+                foreach (var sentencePart in sentenceParts)
                 {
-                    // Add the current chunk to our list of chunks
-                    chunks.Add(string.Join(" ", currentChunk));
+                // If adding this sentence would exceed maxChunkSize
+                    if (currentLength + sentencePart.Length > maxChunkSize && currentChunk.Any())
+                    {
+                        // Add the current chunk to our list of chunks
+                        chunks.Add(string.Join(" ", currentChunk));
 
-                    // Start a new chunk with overlap
-                    currentChunk = GetOverlappingContent(currentChunk, overlap);
-                    currentLength = currentChunk.Sum(s => s.Length + 1); // +1 for space
+                        // Start a new chunk with overlap
+                        currentChunk = GetOverlappingContent(currentChunk, overlap);
+                        currentLength = currentChunk.Sum(s => s.Length + 1); // +1 for space
+                    }
+
+                    currentChunk.Add(sentencePart);
+                    currentLength += sentencePart.Length + 1; // +1 for space
                 }
-
-                currentChunk.Add(sentence);
-                currentLength += sentence.Length + 1; // +1 for space
             }
 
             // Add the last chunk if there's anything left
@@ -63,6 +68,71 @@ namespace rag_experiment.Services
                 .Select(s => s.Trim())
                 .Where(s => !string.IsNullOrWhiteSpace(s))
                 .ToList();
+        }
+
+        private List<string> SplitOversizedSegment(string text, int maxChunkSize)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return new List<string>();
+
+            if (text.Length <= maxChunkSize)
+                return new List<string> { text.Trim() };
+
+            var parts = new List<string>();
+            var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            // If there are no meaningful word boundaries, fall back to hard character splits.
+            if (words.Length <= 1)
+            {
+                for (var i = 0; i < text.Length; i += maxChunkSize)
+                {
+                    var length = Math.Min(maxChunkSize, text.Length - i);
+                    parts.Add(text.Substring(i, length).Trim());
+                }
+
+                return parts.Where(part => !string.IsNullOrWhiteSpace(part)).ToList();
+            }
+
+            var currentPart = new List<string>();
+            var currentLength = 0;
+
+            foreach (var word in words)
+            {
+                if (word.Length > maxChunkSize)
+                {
+                    if (currentPart.Count > 0)
+                    {
+                        parts.Add(string.Join(" ", currentPart));
+                        currentPart.Clear();
+                        currentLength = 0;
+                    }
+
+                    for (var i = 0; i < word.Length; i += maxChunkSize)
+                    {
+                        var length = Math.Min(maxChunkSize, word.Length - i);
+                        parts.Add(word.Substring(i, length));
+                    }
+
+                    continue;
+                }
+
+                if (currentLength + word.Length + (currentPart.Count > 0 ? 1 : 0) > maxChunkSize)
+                {
+                    parts.Add(string.Join(" ", currentPart));
+                    currentPart.Clear();
+                    currentLength = 0;
+                }
+
+                currentPart.Add(word);
+                currentLength += word.Length + (currentPart.Count > 1 ? 1 : 0);
+            }
+
+            if (currentPart.Count > 0)
+            {
+                parts.Add(string.Join(" ", currentPart));
+            }
+
+            return parts.Where(part => !string.IsNullOrWhiteSpace(part)).ToList();
         }
 
         private List<string> GetOverlappingContent(List<string> currentChunk, int overlapSize)

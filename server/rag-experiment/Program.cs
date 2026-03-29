@@ -71,6 +71,7 @@ builder.Services.Configure<RouteOptions>(options =>
 });
 
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddMemoryCache();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "RAG API", Version = "v1" });
@@ -297,6 +298,9 @@ builder.Services.AddScoped<IDocumentProcessingNotifier, DocumentProcessingNotifi
 // Register Filing Downloader services
 // SecEdgarClient is registered with HttpClient for proper connection management
 builder.Services.AddHttpClient<IFilingDownloader, SecEdgarClient>();
+builder.Services.AddScoped<ICompanyFilingsService>(serviceProvider =>
+    (SecEdgarClient)serviceProvider.GetRequiredService<IFilingDownloader>());
+builder.Services.AddHttpClient<ICompanyDirectoryService, SecCompanyDirectoryClient>();
 builder.Services.AddScoped<IFilingPersistor, LocalFilingPersistor>();
 
 // Configure Hangfire with PostgreSQL storage

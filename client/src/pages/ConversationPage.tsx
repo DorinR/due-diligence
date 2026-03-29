@@ -3,6 +3,8 @@ import * as signalR from "@microsoft/signalr";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import { useGetCompanyFilings } from "../api/company/getCompanyFilings";
+import { useGetCompanyList } from "../api/company/getCompanyList";
 import { useGetConversationById } from "../api/conversation/getConversationById";
 import { useSetConversationCompany } from "../api/conversation/setConversationCompany";
 import { ConversationMessage } from "../api/message/getMessageListByConversation";
@@ -45,13 +47,19 @@ export function ConversationPage() {
     const { mutate: sendMessage } = useSendMessage();
     const { mutate: setConversationCompany, isPending: isSettingCompany } =
         useSetConversationCompany();
+    const {
+        data: availableCompanies = [],
+        isLoading: isLoadingCompanies,
+        error: companyListError,
+    } = useGetCompanyList();
 
     const [selectedCompany, setSelectedCompany] = useState("");
-
-    type CompanyOption = {
-        label: string;
-        ticker: string;
-    };
+    const [selectedFilingTypes, setSelectedFilingTypes] = useState<string[]>([]);
+    const {
+        data: companyFilings,
+        isLoading: isLoadingCompanyFilings,
+        error: companyFilingsError,
+    } = useGetCompanyFilings(selectedCompany);
 
     // Convert conversation messages to chat interface format
     const convertMessagesToChat = useCallback(
@@ -257,63 +265,200 @@ export function ConversationPage() {
         };
     }, [processingComplete, processingError]);
 
-    const companyOptions: CompanyOption[] = useMemo(
-        () => [
-            { label: "Apple", ticker: "AAPL" },
-            { label: "Microsoft", ticker: "MSFT" },
-            { label: "Amazon", ticker: "AMZN" },
-            { label: "Alphabet", ticker: "GOOG" },
-            { label: "Berkshire Hathaway", ticker: "BRK.B" },
-        ],
-        [],
+    const companyOptions = useMemo(
+        () =>
+            availableCompanies.filter(
+                (company) => !!company.ticker && company.ticker.trim().length > 0,
+            ),
+        [availableCompanies],
     );
 
+    const selectedCompanyInfo = useMemo(
+        () =>
+            companyOptions.find((option) => option.ticker === selectedCompany) ?? null,
+        [companyOptions, selectedCompany],
+    );
+
+    useEffect(() => {
+        if (!selectedCompany) {
+            setSelectedFilingTypes([]);
+            return;
+        }
+
+        if (companyFilings) {
+            setSelectedFilingTypes(
+                companyFilings.availableFilingTypes.map((filing) => filing.formType),
+            );
+        }
+    }, [companyFilings, selectedCompany]);
+
+    const toggleFilingType = useCallback((formType: string) => {
+        setSelectedFilingTypes((prev) =>
+            prev.includes(formType)
+                ? prev.filter((value) => value !== formType)
+                : [...prev, formType],
+        );
+    }, []);
+
     const handleResearch = () => {
-        if (!conversationId || !selectedCompany) return;
+        if (!conversationId || !selectedCompanyInfo?.ticker) return;
+        if (selectedFilingTypes.length === 0) {
+            toast.error("Select at least one filing type.");
+            return;
+        }
 
         setConversationCompany(
-            { conversationId, companyName: selectedCompany },
+            {
+                conversationId,
+                companyName: selectedCompanyInfo.name,
+                companyTicker: selectedCompanyInfo.ticker,
+                filingTypes: selectedFilingTypes,
+            },
             {
                 onSuccess: () => {
                     setSelectedCompany("");
+                    setSelectedFilingTypes([]);
                     refetchConversation();
                 },
                 onError: () => {
-                    toast.error("Failed to set company. Please try again.");
+                    toast.error("Failed to start ingestion. Please try again.");
                 },
             },
         );
     };
 
+    const availableFilingTypes = companyFilings?.availableFilingTypes ?? [];
+
     const renderCompanySelector = (
         <div className="flex h-full items-center justify-center">
-            <div className="flex flex-col items-center gap-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                <div className="text-lg font-semibold text-gray-900">
-                    Choose a company
+            <div className="flex w-full max-w-xl flex-col gap-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                <div>
+                    <div className="text-lg font-semibold text-gray-900">
+                        Choose a company
+                    </div>
+                    <div className="mt-1 text-sm text-slate-600">
+                        Pick a Fortune 500 company, then choose which filings to ingest.
+                    </div>
                 </div>
                 <select
-                    className="w-64 rounded border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={selectedCompany}
-                    onChange={(e) => setSelectedCompany(e.target.value)}
+                    onChange={(e) => {
+                        setSelectedCompany(e.target.value);
+                        setSelectedFilingTypes([]);
+                    }}
+                    disabled={isLoadingCompanies || isSettingCompany}
                 >
                     <option value="" disabled>
-                        Choose a company
+                        {isLoadingCompanies
+                            ? "Loading companies..."
+                            : companyListError
+                              ? "Failed to load companies"
+                              : "Choose a company"}
                     </option>
                     {companyOptions.map((option) => (
-                        <option key={option.ticker} value={option.ticker}>
-                            {option.label}
+                        <option
+                            key={`${option.cik}:${option.ticker ?? "no-ticker"}:${option.exchange ?? "no-exchange"}`}
+                            value={option.ticker ?? ""}
+                        >
+                            {option.name}
+                            {option.ticker ? ` (${option.ticker})` : ""}
+                            {option.exchange ? ` - ${option.exchange}` : ""}
                         </option>
                     ))}
                 </select>
-                {selectedCompany && (
-                    <Button
-                        variant="primary"
-                        onClick={handleResearch}
-                        disabled={isSettingCompany}
-                    >
-                        {isSettingCompany ? "Loading..." : "Research"}
-                    </Button>
+                {companyListError && (
+                    <div className="text-sm text-red-600">
+                        Failed to load companies. Refresh and try again.
+                    </div>
                 )}
+                {selectedCompanyInfo && (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <div className="text-sm font-semibold text-slate-900">
+                            Available filings for {selectedCompanyInfo.name}
+                        </div>
+                        <div className="mt-1 text-xs text-slate-600">
+                            {selectedCompanyInfo.ticker}
+                            {selectedCompanyInfo.exchange
+                                ? ` • ${selectedCompanyInfo.exchange}`
+                                : ""}
+                        </div>
+                        {isLoadingCompanyFilings && (
+                            <div className="mt-3 text-sm text-slate-600">
+                                Loading available filings...
+                            </div>
+                        )}
+                        {companyFilingsError && (
+                            <div className="mt-3 text-sm text-red-600">
+                                Failed to load filing types for this company.
+                            </div>
+                        )}
+                        {!isLoadingCompanyFilings &&
+                            !companyFilingsError &&
+                            availableFilingTypes.length === 0 && (
+                                <div className="mt-3 text-sm text-slate-600">
+                                    No recent filings were found for this company.
+                                </div>
+                            )}
+                        {availableFilingTypes.length > 0 && (
+                            <>
+                                <div className="mt-3 flex justify-end">
+                                    <button
+                                        type="button"
+                                        className="text-sm font-medium text-slate-600 transition hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
+                                        onClick={() => setSelectedFilingTypes([])}
+                                        disabled={selectedFilingTypes.length === 0}
+                                    >
+                                        Deselect all
+                                    </button>
+                                </div>
+                                <div className="mt-2 grid gap-2">
+                                    {availableFilingTypes.map((filing) => (
+                                        <label
+                                            key={filing.formType}
+                                            className="flex items-start gap-3 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                className="mt-0.5"
+                                                checked={selectedFilingTypes.includes(
+                                                    filing.formType,
+                                                )}
+                                                onChange={() =>
+                                                    toggleFilingType(filing.formType)
+                                                }
+                                            />
+                                            <span className="flex-1">
+                                                <span className="font-medium text-slate-900">
+                                                    {filing.formType}
+                                                </span>
+                                                <span className="ml-2 text-xs text-slate-500">
+                                                    {filing.filingCount} filings
+                                                    {filing.latestFilingDate
+                                                        ? ` • latest ${filing.latestFilingDate}`
+                                                        : ""}
+                                                </span>
+                                            </span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+                <Button
+                    variant="primary"
+                    onClick={handleResearch}
+                    disabled={
+                        isSettingCompany ||
+                        isLoadingCompanies ||
+                        isLoadingCompanyFilings ||
+                        !selectedCompanyInfo ||
+                        selectedFilingTypes.length === 0
+                    }
+                >
+                    {isSettingCompany ? "Starting..." : "Start research"}
+                </Button>
             </div>
         </div>
     );
