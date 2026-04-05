@@ -1,6 +1,7 @@
 import * as signalR from "@microsoft/signalr";
 import { useEffect, useRef, useState } from "react";
 import { getAccessToken } from "@/utils/tokenManager";
+import { toApiUrl } from "@/api/apiBaseUrl";
 
 type DocumentProcessingUpdate = {
     stage: string;
@@ -53,10 +54,8 @@ export const useSubscribeToConversation = ({
         setProcessingComplete(null);
         setProcessingError(null);
 
-        const backendUrl =
-            import.meta.env.VITE_BACKEND_URL ?? "http://localhost:5104";
         const connection = new signalR.HubConnectionBuilder()
-            .withUrl(`${backendUrl}/hubs/document-processing`, {
+            .withUrl(toApiUrl("/hubs/document-processing"), {
                 accessTokenFactory: () => getAccessToken() ?? "",
             })
             .withAutomaticReconnect()

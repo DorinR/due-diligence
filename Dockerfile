@@ -1,14 +1,21 @@
-﻿FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+﻿FROM node:22-alpine AS frontend-build
+WORKDIR /client
+COPY client/package*.json ./
+RUN npm ci
+COPY client/ ./
+RUN npm run build
+
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 WORKDIR /app
 EXPOSE 8080
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["rag-experiment/rag-experiment.csproj", "rag-experiment/"]
-RUN dotnet restore "rag-experiment/rag-experiment.csproj"
-COPY . .
-WORKDIR "/src/rag-experiment"
+COPY ["server/rag-experiment/rag-experiment.csproj", "server/rag-experiment/"]
+RUN dotnet restore "server/rag-experiment/rag-experiment.csproj"
+COPY server/ ./server/
+WORKDIR "/src/server/rag-experiment"
 RUN dotnet build "rag-experiment.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish
@@ -18,6 +25,7 @@ RUN dotnet publish "rag-experiment.csproj" -c $BUILD_CONFIGURATION -o /app/publi
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+COPY --from=frontend-build /client/dist ./wwwroot
 
 # Set ASP.NET Core environment
 ENV ASPNETCORE_ENVIRONMENT=Production

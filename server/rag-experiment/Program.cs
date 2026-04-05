@@ -416,13 +416,16 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "RAG API v1"));
-
-    // Redirect root to Swagger UI
-    app.MapGet("/", () => Results.Redirect("/swagger/index.html"));
 }
+
+var spaIndexPath = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"),
+    "index.html");
 
 // Enable CORS with the "AllowAll" policy
 app.UseCors("AllowAll");
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 // Add authentication middleware
 app.UseAuthentication();
@@ -441,6 +444,15 @@ app.MapHub<DocumentProcessingHub>("/hubs/document-processing");
 
 // Add health check endpoint
 app.MapHealthChecks("/health");
+
+if (File.Exists(spaIndexPath))
+{
+    app.MapFallbackToFile("index.html");
+}
+else if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/", () => Results.Redirect("/swagger/index.html"));
+}
 
 // Note: Document processing is now handled by Hangfire background jobs
 // Document deletion still uses EventBus for immediate cleanup

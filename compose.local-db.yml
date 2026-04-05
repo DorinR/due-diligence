@@ -1,0 +1,22 @@
+services:
+  db:
+    build:
+      context: .
+      dockerfile: database/postgres/Dockerfile
+    container_name: due-diligence-db
+    environment:
+      POSTGRES_DB: due_diligence
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - due_diligence_pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d due_diligence"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  due_diligence_pgdata:

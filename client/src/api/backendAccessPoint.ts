@@ -5,16 +5,10 @@ import {
     getRefreshToken,
     setAccessToken,
 } from '../utils/tokenManager';
-
-// Get the backend URL from environment variables
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
-
-if (!BACKEND_URL) {
-    throw new Error('VITE_BACKEND_URL environment variable is not set');
-}
+import { apiBaseUrl, toApiUrl } from './apiBaseUrl';
 
 export const backendAccessPoint = axios.create({
-    baseURL: BACKEND_URL,
+    baseURL: apiBaseUrl || undefined,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -47,7 +41,7 @@ backendAccessPoint.interceptors.response.use(
             const refreshToken = getRefreshToken();
             if (refreshToken) {
                 try {
-                    const response = await axios.post(`${BACKEND_URL}/api/auth/refresh-token`, {
+                    const response = await axios.post(toApiUrl('/api/auth/refresh-token'), {
                         RefreshToken: refreshToken,
                     });
 
