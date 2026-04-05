@@ -23,6 +23,7 @@ using rag_experiment.Services.Ingestion.TextExtraction;
 using rag_experiment.Services.FilingDownloader;
 using rag_experiment.Hubs;
 using rag_experiment.Hubs.Services;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -245,30 +246,7 @@ builder.Services
 
 // Register AppDbContext with PostgreSQL connection
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
-if (!string.IsNullOrEmpty(connectionString))
-{
-    // Convert PostgreSQL URI format to key-value format if needed
-    if (connectionString.StartsWith("postgresql://") || connectionString.StartsWith("postgres://"))
-    {
-        try
-        {
-            var uri = new Uri(connectionString);
-            var host = uri.Host;
-            var port = uri.Port;
-            var database = uri.AbsolutePath.TrimStart('/');
-            var userInfo = uri.UserInfo.Split(':');
-            var username = userInfo[0];
-            var password = userInfo.Length > 1 ? userInfo[1] : "";
-
-            connectionString =
-                $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
-        }
-        catch
-        {
-        }
-    }
-}
+connectionString = NormalizePostgresConnectionString(connectionString);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
@@ -318,6 +296,86 @@ builder.Services.AddHangfireServer();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+static string? NormalizePostgresConnectionString(string? rawConnectionString)
+{
+    if (string.IsNullOrWhiteSpace(rawConnectionString))
+    {
+        return rawConnectionString;
+    }
+
+    NpgsqlConnectionStringBuilder builder;
+
+    if (rawConnectionString.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase) ||
+        rawConnectionString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase))
+    {
+        try
+        {
+            var uri = new Uri(rawConnectionString);
+            builder = new NpgsqlConnectionStringBuilder
+            {
+                Host = uri.Host,
+                Port = uri.IsDefaultPort ? 5432 : uri.Port,
+                Database = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/')),
+                Username = uri.UserInfo.Split(':', 2).FirstOrDefault() is { Length: > 0 } username
+                    ? Uri.UnescapeDataString(username)
+                    : string.Empty,
+                Password = uri.UserInfo.Split(':', 2).Skip(1).FirstOrDefault() is { } password
+                    ? Uri.UnescapeDataString(password)
+                    : string.Empty
+            };
+
+            var query = uri.Query.TrimStart('?');
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var parts = pair.Split('=', 2);
+                    var key = Uri.UnescapeDataString(parts[0]).Replace("_", " ");
+                    var value = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+                    builder[key] = value;
+                }
+            }
+        }
+        catch
+        {
+            return rawConnectionString;
+        }
+    }
+    else
+    {
+        builder = new NpgsqlConnectionStringBuilder(rawConnectionString);
+    }
+
+    // Add conservative defaults for managed Postgres deployments unless already specified.
+    if (builder.TryGetValue("SSL Mode", out var sslMode) is false || sslMode is null)
+    {
+        builder.SslMode = SslMode.Require;
+    }
+
+    if (builder.TryGetValue("Trust Server Certificate", out var trustServerCertificate) is false ||
+        trustServerCertificate is null)
+    {
+        builder.TrustServerCertificate = true;
+    }
+
+    if (builder.TryGetValue("Keepalive", out var keepalive) is false || keepalive is null)
+    {
+        builder.KeepAlive = 30;
+    }
+
+    if (builder.TryGetValue("Timeout", out var timeout) is false || timeout is null)
+    {
+        builder.Timeout = 15;
+    }
+
+    if (builder.TryGetValue("Command Timeout", out var commandTimeout) is false || commandTimeout is null)
+    {
+        builder.CommandTimeout = 60;
+    }
+
+    return builder.ConnectionString;
+}
 
 // Database initialization - only run if Railway didn't handle migrations
 var skipMigrations = builder.Configuration.GetValue<bool>("RAILWAY_SKIP_MIGRATIONS", false);
