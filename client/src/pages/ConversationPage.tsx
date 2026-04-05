@@ -12,6 +12,8 @@ import { MessageRole, useSendMessage } from "../api/message/sendMessage";
 import { ChatInterface, Message } from "../components/ChatInterface";
 import { Button } from "../components/ui/button/Button";
 
+const MAX_SELECTED_FILING_TYPES = 5;
+
 // Helper function to generate a unique ID
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -286,18 +288,28 @@ export function ConversationPage() {
         }
 
         if (companyFilings) {
-            setSelectedFilingTypes(
-                companyFilings.availableFilingTypes.map((filing) => filing.formType),
+            setSelectedFilingTypes((prev) =>
+                prev.filter((formType) =>
+                    companyFilings.availableFilingTypes.some(
+                        (filing) => filing.formType === formType,
+                    ),
+                ),
             );
         }
     }, [companyFilings, selectedCompany]);
 
     const toggleFilingType = useCallback((formType: string) => {
-        setSelectedFilingTypes((prev) =>
-            prev.includes(formType)
-                ? prev.filter((value) => value !== formType)
-                : [...prev, formType],
-        );
+        setSelectedFilingTypes((prev) => {
+            if (prev.includes(formType)) {
+                return prev.filter((value) => value !== formType);
+            }
+
+            if (prev.length >= MAX_SELECTED_FILING_TYPES) {
+                return prev;
+            }
+
+            return [...prev, formType];
+        });
     }, []);
 
     const handleResearch = () => {
@@ -402,7 +414,10 @@ export function ConversationPage() {
                             )}
                         {availableFilingTypes.length > 0 && (
                             <>
-                                <div className="mt-3 flex justify-end">
+                                <div className="mt-3 flex items-center justify-between gap-3">
+                                    <div className="text-xs text-slate-500">
+                                        Select up to {MAX_SELECTED_FILING_TYPES} filing types.
+                                    </div>
                                     <button
                                         type="button"
                                         className="text-sm font-medium text-slate-600 transition hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
@@ -424,6 +439,13 @@ export function ConversationPage() {
                                                 checked={selectedFilingTypes.includes(
                                                     filing.formType,
                                                 )}
+                                                disabled={
+                                                    selectedFilingTypes.length >=
+                                                        MAX_SELECTED_FILING_TYPES &&
+                                                    !selectedFilingTypes.includes(
+                                                        filing.formType,
+                                                    )
+                                                }
                                                 onChange={() =>
                                                     toggleFilingType(filing.formType)
                                                 }

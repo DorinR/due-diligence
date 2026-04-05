@@ -29,6 +29,7 @@ Always use the latest stable version of these libraries.
 - **Functional components only.** No class components.
 - **PascalCase** for component file names and component names (`ConversationPage.tsx`, `DashboardPage.tsx`).
 - **camelCase** for hooks (`useGetConversationList.ts`), utilities, and helper files.
+- Multi-select checkbox UIs should default to no selections unless a flow explicitly requires preselection; when there is a selection cap, disable unchecked options after the limit is reached.
 - Props are typed **inline** at the function signature, not as separate exported interfaces:
 
 ```tsx
