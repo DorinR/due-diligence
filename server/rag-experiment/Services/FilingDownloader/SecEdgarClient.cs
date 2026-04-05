@@ -232,7 +232,8 @@ public class SecEdgarClient : IFilingDownloader, ICompanyFilingsService
         }
 
         var content = await response.Content.ReadAsByteArrayAsync(ct);
-        var fileName = $"{filing.Form}_{filing.AccessionNumber}{Path.GetExtension(filing.PrimaryDocument)}";
+        var safeForm = SanitizeFileNamePart(filing.Form);
+        var fileName = $"{safeForm}_{filing.AccessionNumber}{Path.GetExtension(filing.PrimaryDocument)}";
 
         return new FilingDocument
         {
@@ -308,6 +309,19 @@ public class SecEdgarClient : IFilingDownloader, ICompanyFilingsService
             .Cast<string>()
             .ToList()
             .AsReadOnly();
+    }
+
+    private static string SanitizeFileNamePart(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "unknown";
+        }
+
+        var invalidChars = Path.GetInvalidFileNameChars().Concat(new[] { '/', '\\' }).ToHashSet();
+        var sanitized = new string(value.Select(ch => invalidChars.Contains(ch) ? '-' : ch).ToArray());
+
+        return string.IsNullOrWhiteSpace(sanitized) ? "unknown" : sanitized;
     }
 
     private async Task EnforceRateLimitAsync(CancellationToken ct)
